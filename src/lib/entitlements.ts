@@ -19,13 +19,8 @@
  */
 import { and, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  bundleItems,
-  entitlements,
-  products,
-  subscriptions,
-  type Product,
-} from "@/db/schema";
+import { bundleItems, entitlements, products, subscriptions } from "@/db/schema";
+import { publicProductColumns, type PublicProduct } from "./catalog";
 
 /** Stripe statuses that should still unlock content. */
 const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing"] as const;
@@ -91,7 +86,12 @@ export async function hasAccess(
   return (await resolveAccess(userId, productId)) !== "none";
 }
 
-export type LibraryEntry = Product & { via: Exclude<AccessVia, "none"> };
+/**
+ * A library row carries only public product fields. The download link is built
+ * from the product id and the entitlement is re-checked server-side on click,
+ * so the browser never needs — and never receives — the storage key.
+ */
+export type LibraryEntry = PublicProduct & { via: Exclude<AccessVia, "none"> };
 
 /**
  * Every product the user can read right now, from all sources, de-duplicated.
@@ -100,19 +100,19 @@ export type LibraryEntry = Product & { via: Exclude<AccessVia, "none"> };
  */
 export async function listLibrary(userId: string): Promise<LibraryEntry[]> {
   const owned = await db
-    .select({ product: products })
+    .select(publicProductColumns)
     .from(entitlements)
     .innerJoin(products, eq(products.id, entitlements.productId))
     .where(liveEntitlement(userId));
 
   const library = new Map<string, LibraryEntry>();
-  for (const { product } of owned) {
+  for (const product of owned) {
     library.set(product.id, { ...product, via: "entitlement" });
   }
 
   if (await hasActiveSubscription(userId)) {
     const included = await db
-      .select()
+      .select(publicProductColumns)
       .from(products)
       .where(and(eq(products.includedInSubscription, true), eq(products.status, "published")));
 

@@ -48,10 +48,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    /**
+     * Build the session object from scratch rather than mutating the one the
+     * adapter hands over.
+     *
+     * That default object is the database session row spread together with the
+     * full user row, and `GET /api/auth/session` returns it verbatim to the
+     * browser. Mutating it would have published `sessionToken` — the actual
+     * credential — to any script on the page, which defeats the point of the
+     * cookie being httpOnly, along with `stripeCustomerId`, `referralCode` and
+     * `createdAt`, none of which the UI needs.
+     *
+     * Returning an explicit object means new columns on `users` are private by
+     * default: a field reaches the browser only if someone adds it here.
+     */
     session({ session, user }) {
-      session.user.id = user.id;
-      session.user.isAdmin = (user as typeof user & { isAdmin?: boolean }).isAdmin ?? false;
-      return session;
+      const row = user as typeof user & { isAdmin?: boolean };
+      return {
+        expires: session.expires,
+        user: {
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          image: row.image,
+          // Kept because it gates admin-only UI; it is the user's own flag and
+          // is never authorisation on its own — the server re-checks.
+          isAdmin: row.isAdmin ?? false,
+        },
+      };
     },
   },
   events: {

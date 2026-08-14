@@ -177,6 +177,42 @@ landmark regions, `:focus-visible` rings in a colour that stays legible against
 both the ground and the copper accents, labelled controls, and `role="alert"` on
 error text.
 
+## What the browser is allowed to see
+
+Every response is built from an explicit field list. Nothing is sent because it
+happened to be on the row.
+
+**Products and bundles.** `src/lib/catalog.ts` defines `publicProductColumns`
+and `publicBundleColumns`; every storefront query selects through them, so
+`fileKey` (the private object key in the PDF bucket), `sourceSha256`,
+`stripePriceId` and the row timestamps are never in the object at all.
+
+The `satisfies Record<keyof PublicProduct, unknown>` on those projections is the
+guard, and it is load-bearing rather than decorative: it makes the projection an
+object literal subject to excess-property checking, so re-adding `fileKey` fails
+to compile. Plain assignability does **not** catch this — a query result with
+extra columns is still assignable to the narrower type, which is exactly how
+this class of leak ships unnoticed. Both directions are verified: adding a
+private column fails with TS2353, dropping a public one fails with TS1360.
+
+**Sessions.** The `session` callback in `src/auth.ts` returns an explicit object
+rather than mutating the adapter's. The default object is the session row spread
+with the full user row, and `GET /api/auth/session` returns it verbatim — which
+would publish `sessionToken`, the actual credential, to any script on the page,
+defeating the httpOnly cookie. It now returns `{ expires, user: { id, name,
+email, image, isAdmin } }` and nothing else, so new columns on `users` are
+private by default.
+
+**API routes** return only what the caller needs: `{ url }` from checkout and
+portal, `{ received: true }` from the webhook, a 302 to a short-lived presigned
+URL from downloads. Errors return fixed strings; stack traces and driver
+messages stay in the server log.
+
+Run `npm run verify:exposure` to check this against a real database. It asserts
+the projections and the rows they return carry no private field, and includes a
+control assertion that an unprojected row *does* still contain `fileKey` — so
+the test cannot quietly pass by testing nothing.
+
 ## Security notes
 
 - The PDF bucket must not be public. `src/lib/storage.ts` is the only code that

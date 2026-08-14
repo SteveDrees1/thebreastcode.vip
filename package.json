@@ -15,7 +15,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "stripe:listen": "stripe listen --forward-to localhost:3000/api/stripe/webhook",
     "verify:entitlements": "tsx scripts/verify-entitlements.ts",
-    "import:product": "tsx scripts/import-product.ts"
+    "import:product": "tsx scripts/import-product.ts",
+    "verify:exposure": "tsx scripts/verify-exposure.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",

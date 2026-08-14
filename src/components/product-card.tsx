@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Product } from "@/db/schema";
+import type { PublicProduct } from "@/lib/catalog";
 import { formatPrice } from "@/lib/stripe";
 
 /**
@@ -11,7 +11,7 @@ export function ProductCard({
   owned,
   index,
 }: {
-  product: Product;
+  product: PublicProduct;
   owned?: boolean;
   index?: number;
 }) {
