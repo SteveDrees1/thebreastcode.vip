@@ -129,6 +129,37 @@ and a wrong guess would be published to the storefront. With no `--title` and no
 embedded PDF title the importer falls back to the filename, warns, and leaves
 the product in `draft` unless you pass `--publish`.
 
+### Cover images
+
+The plate sets already open with a designed cover, so the catalog thumbnail is
+page one of the PDF itself — what a customer sees is exactly what they get.
+
+```bash
+npm run make:cover -- --pdf ./Joinery.pdf --slug joinery-reference --local
+```
+
+`--local` writes `public/covers/<slug>.webp` and points the product row at it.
+For a catalog this size that is a fine production answer: the images version
+with the code, cost nothing to serve, and remove the need for a public bucket.
+Commit the file so it deploys with the site.
+
+Drop `--local` to upload to object storage instead — set `S3_PUBLIC_BASE_URL`
+(and optionally `S3_PUBLIC_BUCKET`) to a **public** bucket or CDN domain. Covers
+must never go in the private bucket the PDFs live in.
+
+Preview without touching anything:
+
+```bash
+npm run make:cover -- --pdf ./Joinery.pdf --out ./preview.webp --dry-run
+```
+
+Flags: `--page N` (default 1), `--width N` (default 800), `--quality N`
+(default 82). A letter page renders to roughly 35 KB of WebP in under a second.
+
+Rendering uses pdf.js with a native canvas, so it works on any PDF regardless of
+which tool produced it. Those packages are **devDependencies** — only this
+script needs them, and they never enter the app bundle.
+
 ### By hand
 
 1. Upload the file to the **private** bucket, e.g. `pdfs/my-guide-v1.pdf`.

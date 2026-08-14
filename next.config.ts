@@ -63,6 +63,22 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
+      {
+        /*
+         * Covers are keyed by slug, not by content hash, so they must stay
+         * replaceable when a set is revised — `immutable` would strand the old
+         * image in caches. An hour fresh plus a day of stale-while-revalidate
+         * means repeat visitors pay nothing and a new cover still lands within
+         * a day, without a deploy.
+         */
+        source: "/covers/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
     ];
   },
 };
