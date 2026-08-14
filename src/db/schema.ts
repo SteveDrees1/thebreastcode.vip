@@ -132,6 +132,15 @@ export const products = pgTable(
     /** Optional free sample (first N pages) in the PUBLIC bucket. */
     samplePdfUrl: text("sample_pdf_url"),
 
+    /**
+     * Checksum of the PDF as built by the generator. Lets `import:product` skip
+     * re-uploading an unchanged file and tells you at a glance whether the
+     * object in the bucket matches the current build.
+     */
+    sourceSha256: text("source_sha256"),
+    /** Document id from the generator, e.g. "DM-WSG-2026". */
+    sourceDocId: text("source_doc_id"),
+
     priceCents: integer("price_cents").notNull(),
     currency: text("currency").notNull().default("usd"),
     /** Stripe Price the checkout session uses. */
