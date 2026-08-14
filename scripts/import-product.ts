@@ -1,15 +1,28 @@
 /**
- * Register a generated PDF as a sellable product.
+ * Register a PDF as a sellable product.
  *
- * Reads the manifest emitted by the generator (see the workshop-guide repo),
- * uploads the PDF to the private bucket, and upserts the matching `products`
- * row so the catalog listing is derived from the same constants as the document.
+ * Two ways in:
  *
- *   npm run import:product -- \
- *     --manifest ../workshop-guide/output/workshop_organizer_guide.manifest.json \
- *     --pdf      ../workshop-guide/output/workshop_organizer_guide.pdf \
- *     --price    2400 \
- *     --publish
+ * 1. **From a manifest** — for generators that describe their own output (see
+ *    the workshop-guide repo). The listing is then derived from the same
+ *    constants as the document and cannot drift from it.
+ *
+ *      npm run import:product -- \
+ *        --manifest ../workshop-guide/output/workshop_organizer_guide.manifest.json \
+ *        --pdf      ../workshop-guide/output/workshop_organizer_guide.pdf \
+ *        --price 2400 --publish
+ *
+ * 2. **From the PDF alone** — for finished PDFs that carry no metadata worth
+ *    trusting, which is most of them. Page count, size and checksum are read
+ *    from the file; the words a customer reads are supplied on the command line
+ *    rather than scraped out of page one, because cover layouts vary and a
+ *    wrong guess would be published to the storefront.
+ *
+ *      npm run import:product -- \
+ *        --pdf ./Joinery.pdf \
+ *        --slug joinery-reference --title "Joinery Reference" \
+ *        --subtitle "Woodworking · Plate Set 01" \
+ *        --price 1900 --publish
  *
  * Re-running is safe and is the intended way to ship a revision. Deliberately,
  * a re-import never overwrites `priceCents` or demotes `status`: those are
@@ -21,6 +34,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { eq } from "drizzle-orm";
+import { PDFDocument } from "pdf-lib";
 import { z } from "zod";
 import { db } from "../src/db";
 import { products } from "../src/db/schema";
@@ -45,22 +59,78 @@ function arg(name: string): string | undefined {
 }
 const flag = (name: string) => process.argv.includes(`--${name}`);
 
+type Manifest = z.infer<typeof manifestSchema>;
+
+/** Turn a filename or title into a URL-safe slug. */
+function slugify(input: string): string {
+  return input
+    .normalize("NFKD")
+    .replace(/[‘’“”]/g, "")
+    .replace(/[^\w\s-]/g, " ")
+    .trim()
+    .replace(/[\s_]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .toLowerCase()
+    .replace(/^-|-$/g, "");
+}
+
+/**
+ * Build a manifest for a PDF that did not come with one.
+ *
+ * Only facts that can be read reliably from the file are derived. Titles and
+ * descriptions come from flags: extracting them from page one means guessing at
+ * a cover layout, and a bad guess here is published to the storefront.
+ */
+async function manifestFromPdf(pdf: Buffer, pdfPath: string): Promise<Manifest> {
+  const doc = await PDFDocument.load(pdf, { updateMetadata: false });
+
+  const filename = path.basename(pdfPath, path.extname(pdfPath));
+  const embedded = doc.getTitle()?.trim();
+  const title = arg("title") ?? embedded ?? filename;
+  const slug = arg("slug") ?? slugify(title);
+
+  if (!arg("title") && !embedded) {
+    console.warn(
+      `warning: no --title given and the PDF has no title metadata; ` +
+        `falling back to the filename ("${filename}").`,
+    );
+  }
+
+  return manifestSchema.parse({
+    slug,
+    title,
+    subtitle: arg("subtitle"),
+    description: arg("description") ?? "",
+    docId: arg("doc-id"),
+    pageCount: doc.getPageCount(),
+    fileName: path.basename(pdfPath),
+    fileSizeBytes: pdf.length,
+    assetVersion: arg("version") ?? 1,
+  });
+}
+
 async function main() {
   const manifestPath = arg("manifest");
   const pdfPath = arg("pdf");
 
-  if (!manifestPath || !pdfPath) {
+  if (!pdfPath) {
     console.error(
-      "Usage: npm run import:product -- --manifest <path> --pdf <path> " +
-        "[--price <cents>] [--publish] [--no-subscription] [--skip-upload]",
+      "Usage: npm run import:product -- --pdf <path> [--manifest <path>]\n" +
+        "  With no --manifest, describe the product directly:\n" +
+        "    --slug --title --subtitle --description --doc-id --version\n" +
+        "  Common: --price <cents> --publish --no-subscription --skip-upload\n" +
+        "          --cover-url <public image url>",
     );
     process.exit(1);
   }
 
-  const manifest = manifestSchema.parse(
-    JSON.parse(await readFile(path.resolve(manifestPath), "utf8")),
-  );
   const pdf = await readFile(path.resolve(pdfPath));
+
+  const manifest = manifestPath
+    ? manifestSchema.parse(
+        JSON.parse(await readFile(path.resolve(manifestPath), "utf8")),
+      )
+    : await manifestFromPdf(pdf, pdfPath);
 
   // Trust the file on disk over the manifest: if they disagree, the manifest is
   // stale and importing it would record a checksum that matches nothing.
@@ -121,6 +191,7 @@ async function main() {
   }
 
   // --- upsert -------------------------------------------------------------
+  const coverUrl = arg("cover-url");
   const shared = {
     title: manifest.title,
     subtitle: manifest.subtitle ?? null,
@@ -131,6 +202,8 @@ async function main() {
     sourceSha256: sha256,
     sourceDocId: manifest.docId ?? null,
     includedInSubscription: !flag("no-subscription"),
+    // Only set when passed, so a re-import never wipes an existing cover.
+    ...(coverUrl ? { coverImageUrl: coverUrl } : {}),
     updatedAt: new Date(),
   };
 

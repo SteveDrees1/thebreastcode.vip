@@ -104,7 +104,30 @@ Re-run the same command to ship a revision. Two safeguards matter:
 Unchanged files are detected via `products.sourceSha256` and skip the upload.
 
 Flags: `--skip-upload` (row only, object already in the bucket),
-`--no-subscription` (sell individually, exclude from all-access).
+`--no-subscription` (sell individually, exclude from all-access),
+`--cover-url <url>` (public cover image; only written when passed, so a
+re-import never wipes an existing cover).
+
+### PDFs without a manifest
+
+Most finished PDFs carry no metadata worth trusting. Import them by describing
+the product on the command line — page count, byte size and checksum are read
+from the file itself:
+
+```bash
+npm run import:product -- \
+  --pdf ./Joinery.pdf \
+  --slug joinery-reference \
+  --title "Joinery Reference" \
+  --subtitle "Woodworking · Plate Set 01 · WW-01" \
+  --description "$(cat description.txt)" \
+  --doc-id WW-01 --price 1900 --publish
+```
+
+Titles and descriptions are **not** scraped from page one. Cover layouts vary,
+and a wrong guess would be published to the storefront. With no `--title` and no
+embedded PDF title the importer falls back to the filename, warns, and leaves
+the product in `draft` unless you pass `--publish`.
 
 ### By hand
 
