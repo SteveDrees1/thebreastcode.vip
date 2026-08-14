@@ -1,39 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { products } from "@/db/schema";
 import { auth } from "@/auth";
 import { resolveAccess } from "@/lib/entitlements";
+import { getProductBySlug } from "@/lib/catalog";
+import { env } from "@/lib/env";
 import { formatPrice } from "@/lib/stripe";
 import { CheckoutButton } from "@/components/checkout-button";
 
-export const revalidate = 3600;
-
-/** Pre-render every published product at build time for fast, indexable pages. */
-export async function generateStaticParams() {
-  try {
-    const rows = await db
-      .select({ slug: products.slug })
-      .from(products)
-      .where(eq(products.status, "published"));
-    return rows.map((r) => ({ slug: r.slug }));
-  } catch {
-    // No database at build time (e.g. a preview build without secrets) — fall
-    // back to rendering on demand.
-    return [];
-  }
-}
-
-async function getProduct(slug: string) {
-  const [product] = await db
-    .select()
-    .from(products)
-    .where(eq(products.slug, slug))
-    .limit(1);
-  return product;
-}
+/**
+ * Rendered per request, not prerendered.
+ *
+ * This page shows either "Buy" or "Download" depending on who is asking, which
+ * means reading the session cookie — and a route that reads cookies cannot also
+ * be statically generated. Declaring `generateStaticParams` here alongside an
+ * `auth()` call is precisely the contradiction that produces DYNAMIC_SERVER_USAGE.
+ *
+ * Speed comes from caching the expensive half instead: the product lookup goes
+ * through `unstable_cache` (see lib/catalog.ts), so a request costs a React
+ * render and no database round trip. The HTML is still fully server-rendered,
+ * so crawlers see complete markup.
+ */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -41,15 +29,19 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getProduct(slug).catch(() => undefined);
+  const product = await getProductBySlug(slug).catch(() => undefined);
   if (!product) return { title: "Not found" };
 
+  const description = product.subtitle ?? product.description.slice(0, 155);
   return {
     title: product.title,
-    description: product.subtitle ?? product.description.slice(0, 160),
+    description,
+    alternates: { canonical: `/catalog/${product.slug}` },
     openGraph: {
+      type: "article",
       title: product.title,
-      description: product.subtitle ?? undefined,
+      description,
+      url: `${env.siteUrl}/catalog/${product.slug}`,
       images: product.coverImageUrl ? [product.coverImageUrl] : undefined,
     },
   };
@@ -61,105 +53,176 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const product = await getProduct(slug);
+  const product = await getProductBySlug(slug);
   if (!product || product.status !== "published") notFound();
 
   const session = await auth();
   const via = await resolveAccess(session?.user?.id, product.id);
 
+  // Product structured data drives price and availability in search results.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    description: product.subtitle ?? product.description.slice(0, 300),
+    sku: product.sourceDocId ?? product.slug,
+    brand: { "@type": "Brand", name: "The Breast Code" },
+    ...(product.coverImageUrl ? { image: [product.coverImageUrl] } : {}),
+    offers: {
+      "@type": "Offer",
+      price: (product.priceCents / 100).toFixed(2),
+      priceCurrency: product.currency.toUpperCase(),
+      availability: "https://schema.org/InStock",
+      url: `${env.siteUrl}/catalog/${product.slug}`,
+    },
+  };
+
   return (
-    <article className="grid gap-10 lg:grid-cols-[minmax(0,320px)_1fr]">
-      <div>
-        <div className="overflow-hidden rounded-xl border border-line bg-accent-soft">
-          {product.coverImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={product.coverImageUrl} alt="" className="w-full object-cover" />
-          ) : (
-            <div className="flex aspect-[3/4] items-center justify-center p-8 text-center font-serif text-2xl text-accent">
-              {product.title}
+    <>
+      <script
+        type="application/ld+json"
+        // Serialised server-side from our own database, not user input.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      <nav aria-label="Breadcrumb" className="mb-8">
+        <Link href="/catalog" className="label transition hover:text-copper">
+          ← Catalog
+        </Link>
+      </nav>
+
+      <article className="grid gap-12 lg:grid-cols-[minmax(0,340px)_1fr]">
+        {/* ── Cover + buy ─────────────────────────────────────────────── */}
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <div className="panel reg overflow-hidden">
+            <div className="aspect-[3/4] bg-surface-2">
+              {product.coverImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={product.coverImageUrl}
+                  alt={`Cover of ${product.title}`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full flex-col justify-between p-7">
+                  <div className="flex items-start justify-between">
+                    <span className="label">Plate Set</span>
+                    {product.sourceDocId ? (
+                      <span className="label label-copper">
+                        No. {product.sourceDocId}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div>
+                    <div aria-hidden className="mb-5 h-px w-14 bg-copper" />
+                    <p className="font-display text-3xl leading-tight font-bold">
+                      {product.title}
+                    </p>
+                  </div>
+                  <span className="label">
+                    {product.pageCount ? `${product.pageCount} plates` : "PDF"}
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-
-        <div className="mt-5">
-          {via !== "none" ? (
-            <div className="rounded-xl border border-line bg-surface p-4">
-              <p className="text-sm text-ink-soft">
-                {via === "subscription"
-                  ? "Included with your all-access plan."
-                  : "You own this guide."}
-              </p>
-              <a
-                href={`/api/download/${product.id}`}
-                className="mt-3 block rounded-full bg-accent px-5 py-2.5 text-center font-medium text-white"
-              >
-                Download PDF
-              </a>
-            </div>
-          ) : (
-            <>
-              <p className="mb-3 text-2xl font-medium">
-                {formatPrice(product.priceCents, product.currency)}
-              </p>
-              <CheckoutButton kind="product" slug={product.slug} label="Buy this guide" />
-              {product.includedInSubscription ? (
-                <p className="mt-3 text-sm text-ink-soft">
-                  Or read it — and everything else — with{" "}
-                  <Link href="/pricing" className="text-accent underline">
-                    all-access
-                  </Link>
-                  .
-                </p>
-              ) : null}
-            </>
-          )}
-
-          {product.samplePdfUrl ? (
-            <a
-              href={product.samplePdfUrl}
-              className="mt-3 block rounded-full border border-line px-5 py-2.5 text-center font-medium"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Read a free sample
-            </a>
-          ) : null}
-        </div>
-      </div>
-
-      <div>
-        <h1 className="font-serif text-3xl leading-tight">{product.title}</h1>
-        {product.subtitle ? (
-          <p className="mt-2 text-lg text-ink-soft">{product.subtitle}</p>
-        ) : null}
-
-        <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-2 border-y border-line py-4 text-sm">
-          {product.pageCount ? (
-            <div>
-              <dt className="text-ink-soft">Pages</dt>
-              <dd className="font-medium">{product.pageCount}</dd>
-            </div>
-          ) : null}
-          <div>
-            <dt className="text-ink-soft">Format</dt>
-            <dd className="font-medium">PDF</dd>
           </div>
-          {product.fileSizeBytes ? (
-            <div>
-              <dt className="text-ink-soft">Size</dt>
-              <dd className="font-medium">
-                {(product.fileSizeBytes / 1_048_576).toFixed(1)} MB
-              </dd>
-            </div>
-          ) : null}
-        </dl>
 
-        <div className="prose-basic mt-6 max-w-prose text-ink-soft">
-          {product.description.split("\n\n").map((para, i) => (
-            <p key={i}>{para}</p>
-          ))}
+          <div className="mt-5">
+            {via !== "none" ? (
+              <div className="panel p-5">
+                <p className="label label-copper">
+                  {via === "subscription" ? "Included with all-access" : "You own this"}
+                </p>
+                <a
+                  href={`/api/download/${product.id}`}
+                  className="btn btn-primary mt-4 w-full"
+                >
+                  Download PDF
+                </a>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-baseline gap-3">
+                  <span className="font-display text-3xl font-bold">
+                    {formatPrice(product.priceCents, product.currency)}
+                  </span>
+                  <span className="label">one-time</span>
+                </div>
+                <CheckoutButton
+                  kind="product"
+                  slug={product.slug}
+                  label="Buy this set"
+                  className="mt-4"
+                />
+                {product.includedInSubscription ? (
+                  <p className="mt-3 text-sm text-muted">
+                    Or read it — and everything else — with{" "}
+                    <Link href="/pricing" className="text-copper underline">
+                      all-access
+                    </Link>
+                    .
+                  </p>
+                ) : null}
+              </>
+            )}
+
+            {product.samplePdfUrl ? (
+              <a
+                href={product.samplePdfUrl}
+                className="btn btn-ghost mt-3 w-full"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Read a free sample
+              </a>
+            ) : null}
+          </div>
         </div>
-      </div>
-    </article>
+
+        {/* ── Detail ──────────────────────────────────────────────────── */}
+        <div>
+          {product.sourceDocId ? (
+            <p className="label label-copper">No. {product.sourceDocId}</p>
+          ) : null}
+
+          <h1 className="mt-3 font-display text-4xl leading-[1.1] font-bold tracking-tight">
+            {product.title}
+          </h1>
+          {product.subtitle ? (
+            <p className="mt-3 text-lg text-muted">{product.subtitle}</p>
+          ) : null}
+
+          {/* Spec bar, styled after the plate footers. */}
+          <dl className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-panel)] border border-line bg-line sm:grid-cols-4">
+            {[
+              product.pageCount
+                ? { k: "Plates", v: String(product.pageCount).padStart(2, "0") }
+                : null,
+              { k: "Format", v: "PDF · Letter" },
+              { k: "Scale", v: "N.T.S." },
+              product.fileSizeBytes
+                ? { k: "Size", v: `${(product.fileSizeBytes / 1_048_576).toFixed(1)} MB` }
+                : null,
+            ]
+              .filter((x): x is { k: string; v: string } => x !== null)
+              .map((spec) => (
+                <div key={spec.k} className="bg-surface px-4 py-3.5">
+                  <dt className="label">{spec.k}</dt>
+                  <dd className="mt-1 font-display font-semibold">{spec.v}</dd>
+                </div>
+              ))}
+          </dl>
+
+          <div className="prose-basic mt-9 max-w-prose text-muted">
+            {product.description
+              .split("\n\n")
+              .filter(Boolean)
+              .map((para, i) => (
+                <p key={i}>{para}</p>
+              ))}
+          </div>
+        </div>
+      </article>
+    </>
   );
 }

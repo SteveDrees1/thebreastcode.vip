@@ -1,52 +1,362 @@
 @import "tailwindcss";
 
+/**
+ * Design language: the storefront borrows the vocabulary of the plate sets it
+ * sells — near-black ground, copper accent, monospace micro-labels, and the
+ * corner registration marks that appear on every printed plate. The site should
+ * read as the same object as the product.
+ *
+ * Committed to dark. This is a deliberate brand choice, not a missing light
+ * theme: the PDFs are dark technical plates and a light storefront would feel
+ * like a different company.
+ */
+
 @theme {
-  --color-ink: #14110f;
-  --color-ink-soft: #4a4340;
-  --color-paper: #fbf9f7;
-  --color-surface: #ffffff;
-  --color-line: #e6e0da;
-  --color-accent: #9d2f4d;
-  --color-accent-soft: #f6e8ec;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-serif: ui-serif, Georgia, "Times New Roman", serif;
+  /* Ground and surfaces */
+  --color-void: #07080a;
+  --color-surface: #0d0f13;
+  --color-surface-2: #141821;
+  --color-line: #1f242e;
+  --color-line-bright: #333b4a;
+
+  /* Type */
+  --color-text: #e9ecf1;
+  --color-muted: #98a1b1;
+  --color-faint: #6b7484;
+
+  /* Accents — copper is the product's own accent; cyan is used sparingly for
+     live/interactive signal so the two never compete. */
+  --color-copper: #e0913f;
+  --color-copper-bright: #f3ad63;
+  --color-copper-dim: #a86a2c;
+  --color-cyan: #4fd6c4;
+
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
+
+  --radius-panel: 14px;
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-ink: #f4f1ee;
-    --color-ink-soft: #a9a19c;
-    --color-paper: #16130f;
-    --color-surface: #201c18;
-    --color-line: #37302a;
-    --color-accent: #e0819a;
-    --color-accent-soft: #33222a;
-  }
+:root {
+  color-scheme: dark;
+  --grid-line: rgba(120, 140, 175, 0.055);
+  --glow-copper: rgba(224, 145, 63, 0.35);
 }
 
 html {
-  color-scheme: light dark;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--color-paper);
-  color: var(--color-ink);
+  background: var(--color-void);
+  color: var(--color-text);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Rendered product descriptions. */
-.prose-basic p {
-  margin-block: 0.75rem;
-  line-height: 1.7;
+/* Blueprint grid. Fixed and masked so it fades out down the page and never
+   competes with content. Pure CSS — no image request. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 55% at 50% 0%, #000 20%, transparent 78%);
+  mask-image: radial-gradient(ellipse 90% 55% at 50% 0%, #000 20%, transparent 78%);
 }
-.prose-basic ul {
-  margin-block: 0.75rem;
-  padding-left: 1.25rem;
-  list-style: disc;
+
+/* A single warm bloom behind the hero, so the top of the page has depth. */
+body::after {
+  content: "";
+  position: fixed;
+  top: -20vh;
+  left: 50%;
+  width: min(1100px, 120vw);
+  height: 60vh;
+  translate: -50% 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(224, 145, 63, 0.1),
+    transparent 68%
+  );
 }
-.prose-basic li {
-  margin-block: 0.25rem;
+
+@layer components {
+  /* ── Micro-labels ────────────────────────────────────────────────────────
+     The "NO. WW-01" / "PLATE SET 02" treatment from the plates. */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+  .label-copper {
+    color: var(--color-copper);
+  }
+
+  /* ── Panels ──────────────────────────────────────────────────────────── */
+  .panel {
+    position: relative;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.022), transparent 40%),
+      var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-panel);
+  }
+
+  /* Corner registration marks, echoing the trim marks on every plate. */
+  .reg::before,
+  .reg::after {
+    content: "";
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-color: var(--color-line-bright);
+    border-style: solid;
+    transition: border-color 0.35s ease;
+    pointer-events: none;
+  }
+  .reg::before {
+    top: -1px;
+    left: -1px;
+    border-width: 1px 0 0 1px;
+    border-top-left-radius: 3px;
+  }
+  .reg::after {
+    right: -1px;
+    bottom: -1px;
+    border-width: 0 1px 1px 0;
+    border-bottom-right-radius: 3px;
+  }
+  .reg:hover::before,
+  .reg:hover::after {
+    border-color: var(--color-copper);
+  }
+
+  /* ── Buttons ─────────────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1.4rem;
+    border-radius: 999px;
+    font-weight: 500;
+    font-size: 0.9375rem;
+    line-height: 1;
+    border: 1px solid transparent;
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.25s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn-primary {
+    color: #1a1206;
+    background: linear-gradient(
+      180deg,
+      var(--color-copper-bright) 0%,
+      var(--color-copper) 100%
+    );
+    background-color: var(--color-copper);
+    box-shadow:
+      0 0 0 1px rgba(255, 210, 150, 0.25) inset,
+      0 6px 24px -8px var(--glow-copper);
+    font-weight: 600;
+  }
+  .btn-primary:hover {
+    box-shadow:
+      0 0 0 1px rgba(255, 210, 150, 0.4) inset,
+      0 10px 34px -8px var(--glow-copper);
+    transform: translateY(-1px);
+  }
+  .btn-primary:disabled {
+    opacity: 0.55;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .btn-ghost {
+    color: var(--color-text);
+    border-color: var(--color-line-bright);
+    background: rgba(255, 255, 255, 0.015);
+  }
+  .btn-ghost:hover {
+    border-color: var(--color-copper);
+    background: rgba(224, 145, 63, 0.07);
+  }
+
+  /* ── Inputs ──────────────────────────────────────────────────────────── */
+  .field {
+    width: 100%;
+    background: var(--color-void);
+    border: 1px solid var(--color-line-bright);
+    border-radius: 10px;
+    padding: 0.7rem 0.95rem;
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: 0.9375rem;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  .field::placeholder {
+    color: var(--color-faint);
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--color-copper);
+    box-shadow: 0 0 0 3px rgba(224, 145, 63, 0.16);
+  }
+
+  /* ── Hairline divider with a copper falloff ──────────────────────────── */
+  .rule {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(
+      90deg,
+      var(--color-copper),
+      var(--color-line) 32%,
+      transparent
+    );
+  }
+
+  /* ── Card sheen: a light sweep on hover ──────────────────────────────── */
+  .sheen {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      105deg,
+      transparent 38%,
+      rgba(255, 255, 255, 0.07) 48%,
+      transparent 58%
+    );
+    translate: -110% 0;
+    transition: translate 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .sheen:hover::after {
+    translate: 110% 0;
+  }
+
+  .prose-basic p {
+    margin-block: 0.85rem;
+    line-height: 1.75;
+  }
+  .prose-basic ul {
+    margin-block: 0.85rem;
+    padding-left: 1.25rem;
+    list-style: disc;
+  }
+  .prose-basic strong {
+    font-weight: 600;
+    color: var(--color-text);
+  }
 }
-.prose-basic strong {
+
+/* ── Focus visibility ──────────────────────────────────────────────────────
+   Cyan reads clearly against both the ground and the copper accents, so the
+   focus ring is never lost on a primary button. */
+:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Skip link: off-screen until focused. */
+.skip-link {
+  position: absolute;
+  left: 50%;
+  top: 0.5rem;
+  translate: -50% -200%;
+  z-index: 100;
+  background: var(--color-copper);
+  color: #1a1206;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
   font-weight: 600;
+  transition: translate 0.2s ease;
+}
+.skip-link:focus {
+  translate: -50% 0;
+}
+
+/* ── Entrance animation ────────────────────────────────────────────────────
+   Scroll-driven, so there is no JS and nothing to hydrate.
+
+   Deliberately transform-only. An opacity fade reads better in a demo but it
+   makes content invisible until scrolled into view, and `animation-fill-mode:
+   both` holds that hidden state indefinitely for anything the timeline never
+   reaches — which breaks printing, deep links to below-fold anchors, and any
+   browser that resolves the timeline differently. A few pixels of travel is
+   the most this effect is allowed to risk. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rise {
+      animation: rise-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+  }
+}
+
+@keyframes rise-in {
+  from {
+    transform: translateY(14px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* A slow pulse for "live" dots. */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(79, 214, 196, 0.5);
+  }
+  50% {
+    opacity: 0.75;
+    box-shadow: 0 0 0 5px rgba(79, 214, 196, 0);
+  }
+}
+.live-dot {
+  animation: pulse-dot 2.6s ease-in-out infinite;
+}
+
+/* Honour the OS setting everywhere, including smooth scrolling. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -5,7 +5,7 @@ import { redeemCodeAction } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Redeem a code" };
+export const metadata: Metadata = { title: "Redeem a code", robots: { index: false } };
 
 export default async function RedeemPage({
   searchParams,
@@ -19,14 +19,17 @@ export default async function RedeemPage({
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="font-serif text-3xl">Redeem a code</h1>
-      <p className="mt-3 text-ink-soft">
-        Got a code from a promotion, a giveaway, or a friend? Enter it here and the
-        guides it unlocks are added to your library.
+      <p className="label label-copper">Promotions</p>
+      <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">
+        Redeem a code
+      </h1>
+      <p className="mt-3 text-muted">
+        Got a code from a promotion, a giveaway, or a friend? Enter it here and the sets
+        it unlocks are added to your library.
       </p>
 
-      <form action={redeemCodeAction} className="mt-6">
-        <label htmlFor="code" className="block text-sm font-medium">
+      <form action={redeemCodeAction} className="panel reg mt-8 p-6">
+        <label htmlFor="code" className="label">
           Your code
         </label>
         <input
@@ -35,19 +38,18 @@ export default async function RedeemPage({
           required
           autoComplete="off"
           autoCapitalize="characters"
+          spellCheck={false}
           placeholder="LAUNCH2026"
-          className="mt-2 w-full rounded-lg border border-line bg-surface px-4 py-2.5 uppercase tracking-wide outline-none focus:border-accent"
+          aria-describedby={error ? "redeem-error" : undefined}
+          className="field mt-2.5 tracking-[0.2em] uppercase"
         />
-        <button
-          type="submit"
-          className="mt-4 w-full rounded-full bg-accent px-5 py-2.5 font-medium text-white"
-        >
+        <button type="submit" className="btn btn-primary mt-4 w-full">
           Redeem
         </button>
       </form>
 
       {error ? (
-        <p className="mt-4 rounded-lg border border-line bg-accent-soft p-3 text-sm">
+        <p id="redeem-error" role="alert" className="panel mt-4 p-4 text-sm text-copper">
           {error}
         </p>
       ) : null}

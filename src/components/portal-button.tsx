@@ -24,11 +24,15 @@ export function PortalButton({ className }: { className?: string }) {
         type="button"
         disabled={pending}
         onClick={() => startTransition(open)}
-        className="rounded-full border border-line px-5 py-2.5 font-medium disabled:opacity-60"
+        className="btn btn-ghost"
       >
         {pending ? "Opening…" : "Manage billing"}
       </button>
-      {error ? <p className="mt-2 text-sm text-accent">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-2 text-sm text-copper">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

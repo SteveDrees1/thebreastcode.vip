@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { redeemPromoCode } from "@/lib/promos";
 import { spendReferralCredit } from "@/lib/referrals";
+import { hit } from "@/lib/rate-limit";
 
 /**
  * Redeem a promo code. The result is passed back through the query string so
@@ -13,6 +14,18 @@ import { spendReferralCredit } from "@/lib/referrals";
 export async function redeemCodeAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) redirect("/signin?next=/redeem");
+
+  // Promo codes are guessable by construction, so this is the one place where
+  // an attacker gains from volume. Sign-in is already required, which caps the
+  // parallelism; this caps the serial rate.
+  const limit = hit(`redeem:${session.user.id}`, 5, 300);
+  if (!limit.ok) {
+    redirect(
+      `/redeem?error=${encodeURIComponent(
+        `Too many attempts. Try again in ${Math.ceil(limit.retryAfter / 60)} minute(s).`,
+      )}`,
+    );
+  }
 
   const code = String(formData.get("code") ?? "");
   const result = await redeemPromoCode(session.user.id, code);

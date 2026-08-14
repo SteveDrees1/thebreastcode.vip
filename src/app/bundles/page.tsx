@@ -1,23 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { desc, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { bundleItems, bundles, products } from "@/db/schema";
+import { bundleItems, products } from "@/db/schema";
+import { getPublishedBundles } from "@/lib/catalog";
 import { formatPrice } from "@/lib/stripe";
 
-export const revalidate = 3600;
+// Rendered per request: the header and buy state depend on the session, so
+// this route reads cookies and cannot be prerendered. Data caching lives in
+// lib/catalog.ts, which keeps the database out of the hot path.
 
 export const metadata: Metadata = {
   title: "Bundles",
-  description: "Related guides grouped together and priced below the sum of their parts.",
+  description:
+    "Related plate sets grouped into a series and priced below the sum of their parts.",
+  alternates: { canonical: "/bundles" },
 };
 
 export default async function BundlesPage() {
-  const published = await db
-    .select()
-    .from(bundles)
-    .where(eq(bundles.status, "published"))
-    .orderBy(desc(bundles.publishedAt));
+  const published = await getPublishedBundles();
 
   // One round trip for the contents of every bundle on the page.
   const items =
@@ -47,49 +48,69 @@ export default async function BundlesPage() {
 
   return (
     <div>
-      <header className="max-w-2xl">
-        <h1 className="font-serif text-3xl">Bundles</h1>
-        <p className="mt-3 text-ink-soft">
-          Buy a set together and pay less than you would for the guides individually.
+      <header>
+        <p className="label label-copper">Series</p>
+        <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">Bundles</h1>
+        <p className="mt-3 max-w-xl text-muted">
+          Buy a series together and pay less than you would for the sets individually.
         </p>
       </header>
 
+      <hr className="rule mt-6 mb-9" />
+
       {published.length === 0 ? (
-        <p className="mt-8 rounded-xl border border-dashed border-line p-10 text-center text-ink-soft">
+        <p className="panel reg p-12 text-center text-muted">
           No bundles published yet.
         </p>
       ) : (
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          {published.map((bundle) => {
+        <div className="grid gap-5 md:grid-cols-2">
+          {published.map((bundle, i) => {
             const contents = byBundle.get(bundle.id) ?? [];
-            const fullPrice = contents.reduce((sum, i) => sum + i.priceCents, 0);
+            const fullPrice = contents.reduce((sum, item) => sum + item.priceCents, 0);
             const saving = fullPrice - bundle.priceCents;
 
             return (
               <Link
                 key={bundle.id}
                 href={`/bundles/${bundle.slug}`}
-                className="flex flex-col rounded-xl border border-line bg-surface p-6 transition hover:border-accent"
+                className="panel reg sheen rise flex flex-col p-6 transition-colors duration-300 hover:border-line-bright"
               >
-                <h2 className="font-serif text-xl">{bundle.title}</h2>
+                <div className="flex items-start justify-between gap-4">
+                  <span className="label label-copper">
+                    Series {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="label">{contents.length} sets</span>
+                </div>
+
+                <h2 className="mt-4 font-display text-2xl font-bold tracking-tight">
+                  {bundle.title}
+                </h2>
                 {bundle.subtitle ? (
-                  <p className="mt-1 text-sm text-ink-soft">{bundle.subtitle}</p>
+                  <p className="mt-1.5 text-sm text-muted">{bundle.subtitle}</p>
                 ) : null}
 
-                <ul className="mt-4 flex-1 space-y-1 text-sm text-ink-soft">
+                <ul className="mt-5 flex-1 space-y-2">
                   {contents.map((item) => (
-                    <li key={item.title}>· {item.title}</li>
+                    <li
+                      key={item.title}
+                      className="flex items-baseline gap-3 text-sm text-muted"
+                    >
+                      <span aria-hidden className="h-px w-3 bg-copper" />
+                      {item.title}
+                    </li>
                   ))}
                 </ul>
 
-                <p className="mt-5 text-lg font-medium">
-                  {formatPrice(bundle.priceCents, bundle.currency)}
+                <div className="mt-6 flex items-baseline gap-3 border-t border-line pt-4">
+                  <span className="font-display text-2xl font-bold">
+                    {formatPrice(bundle.priceCents, bundle.currency)}
+                  </span>
                   {saving > 0 ? (
-                    <span className="ml-2 text-sm font-normal text-ink-soft">
+                    <span className="label label-copper">
                       save {formatPrice(saving, bundle.currency)}
                     </span>
                   ) : null}
-                </p>
+                </div>
               </Link>
             );
           })}

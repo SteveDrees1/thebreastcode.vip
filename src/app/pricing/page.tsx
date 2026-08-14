@@ -7,11 +7,15 @@ import { auth } from "@/auth";
 import { hasActiveSubscription } from "@/lib/entitlements";
 import { CheckoutButton } from "@/components/checkout-button";
 
-export const revalidate = 3600;
+// Rendered per request: the header and buy state depend on the session, so
+// this route reads cookies and cannot be prerendered. Data caching lives in
+// lib/catalog.ts, which keeps the database out of the hot path.
 
 export const metadata: Metadata = {
   title: "All-access",
-  description: "Read every guide in the catalog, including everything published next.",
+  description:
+    "Read every plate set in the catalog, including everything published next.",
+  alternates: { canonical: "/pricing" },
 };
 
 export default async function PricingPage() {
@@ -30,51 +34,68 @@ export default async function PricingPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <header className="text-center">
-        <h1 className="font-serif text-3xl">Two ways to read</h1>
-        <p className="mt-3 text-ink-soft">
-          Buy the guides you want and keep them forever, or subscribe and read the whole
+        <p className="label label-copper">Pricing</p>
+        <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">
+          Two ways to read
+        </h1>
+        <p className="mx-auto mt-3 max-w-md text-muted">
+          Buy the sets you want and keep them forever, or subscribe and read the whole
           library.
         </p>
       </header>
 
-      <div className="mt-10 grid gap-6 sm:grid-cols-2">
-        <section className="rounded-xl border border-line bg-surface p-6">
-          <h2 className="font-serif text-xl">Per guide</h2>
-          <p className="mt-2 text-sm text-ink-soft">
-            Pay once for the guide you need. It stays in your library permanently, even
-            if you never subscribe.
+      <div className="mt-12 grid gap-5 sm:grid-cols-2">
+        <section className="panel reg flex flex-col p-7">
+          <p className="label">Option 01</p>
+          <h2 className="mt-3 font-display text-2xl font-bold">Per set</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Pay once for the set you need. It stays in your library permanently, even if
+            you never subscribe.
           </p>
-          <ul className="mt-5 space-y-2 text-sm text-ink-soft">
-            <li>· Yours to keep, no expiry</li>
-            <li>· Free revisions within the same edition</li>
-            <li>· Bundles available for related sets</li>
+          <ul className="mt-6 flex-1 space-y-2.5 text-sm text-muted">
+            {[
+              "Yours to keep, no expiry",
+              "Free revisions within the same edition",
+              "Bundles available for related series",
+            ].map((line) => (
+              <li key={line} className="flex items-baseline gap-3">
+                <span aria-hidden className="h-px w-3 shrink-0 bg-copper" />
+                {line}
+              </li>
+            ))}
           </ul>
-          <Link
-            href="/catalog"
-            className="mt-6 block rounded-full border border-line px-5 py-2.5 text-center font-medium"
-          >
+          <Link href="/catalog" className="btn btn-ghost mt-7 w-full">
             Browse the catalog
           </Link>
         </section>
 
-        <section className="rounded-xl border-2 border-accent bg-surface p-6">
-          <h2 className="font-serif text-xl">All-access</h2>
-          <p className="mt-2 text-sm text-ink-soft">
-            Every guide in the catalog — currently {includedCount} — plus everything
+        <section className="panel reg relative flex flex-col border-copper/50 p-7">
+          <div className="absolute -top-px right-6 rounded-b bg-copper px-2.5 py-1 text-[0.625rem] font-semibold tracking-widest text-[#1a1206] uppercase">
+            Best value
+          </div>
+
+          <p className="label label-copper">Option 02</p>
+          <h2 className="mt-3 font-display text-2xl font-bold">All-access</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Every set in the catalog — currently {includedCount} — plus everything
             published while your plan is active.
           </p>
-          <ul className="mt-5 space-y-2 text-sm text-ink-soft">
-            <li>· Read the entire library</li>
-            <li>· New guides unlock automatically</li>
-            <li>· Cancel any time from your account</li>
+          <ul className="mt-6 flex-1 space-y-2.5 text-sm text-muted">
+            {[
+              "Read the entire library",
+              "New sets unlock automatically",
+              "Cancel any time from your account",
+            ].map((line) => (
+              <li key={line} className="flex items-baseline gap-3">
+                <span aria-hidden className="h-px w-3 shrink-0 bg-copper" />
+                {line}
+              </li>
+            ))}
           </ul>
 
-          <div className="mt-6">
+          <div className="mt-7">
             {subscribed ? (
-              <Link
-                href="/account"
-                className="block rounded-full border border-line px-5 py-2.5 text-center font-medium"
-              >
+              <Link href="/account" className="btn btn-ghost w-full">
                 Manage your plan
               </Link>
             ) : (
@@ -84,7 +105,7 @@ export default async function PricingPage() {
         </section>
       </div>
 
-      <p className="mt-8 text-center text-sm text-ink-soft">
+      <p className="mt-8 text-center text-sm text-faint">
         Prices exclude tax, which is calculated at checkout based on your location.
       </p>
     </div>

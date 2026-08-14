@@ -46,11 +46,15 @@ export function CheckoutButton({ kind, slug, label, className }: Props) {
         type="button"
         disabled={pending}
         onClick={() => startTransition(start)}
-        className="w-full rounded-full bg-accent px-5 py-2.5 font-medium text-white transition disabled:opacity-60"
+        className="btn btn-primary w-full"
       >
         {pending ? "Starting checkout…" : label}
       </button>
-      {error ? <p className="mt-2 text-sm text-accent">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-2 text-sm text-copper">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

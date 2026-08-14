@@ -139,6 +139,44 @@ the product in `draft` unless you pass `--publish`.
 
 The catalog revalidates hourly, so a new guide appears without a redeploy.
 
+## Design
+
+The storefront borrows the vocabulary of the plate sets it sells — near-black
+ground, copper accent, monospace micro-labels, corner registration marks. The
+site should read as the same object as the product. It is dark by deliberate
+brand choice, not a missing light theme.
+
+Typography is self-hosted through `next/font` (Space Grotesk, Inter, JetBrains
+Mono): no third-party request, no layout shift, and the CSP never has to allow
+an external font host.
+
+Motion is CSS-only and scroll-driven, so there is nothing to hydrate. The
+entrance animation is **transform-only on purpose** — an opacity fade looks
+better in a demo but leaves content invisible until scrolled into view, which
+breaks printing, deep links, and any browser that resolves the scroll timeline
+differently. `prefers-reduced-motion` disables all of it.
+
+## Performance
+
+- Catalog reads go through `unstable_cache` (`src/lib/catalog.ts`), so a page
+  view costs a React render and no database round trip.
+- Pages that show who is signed in are rendered per request. A route that reads
+  the session cookie **cannot** also be prerendered — declaring
+  `generateStaticParams` next to an `auth()` call is what produces
+  `DYNAMIC_SERVER_USAGE`. Speed comes from caching the data, not the HTML.
+- Static assets are served `immutable`; account pages and download redirects are
+  `private, no-store` so no shared proxy can hand one customer another's link.
+
+Measured on the catalog page against a local build: TTFB 20 ms, DOMContentLoaded
+88 ms, 106 KB of JS, 182 DOM nodes, no console errors.
+
+## Accessibility
+
+Skip link as the first tab stop, one `h1` per page with no skipped levels,
+landmark regions, `:focus-visible` rings in a colour that stays legible against
+both the ground and the copper accents, labelled controls, and `role="alert"` on
+error text.
+
 ## Security notes
 
 - The PDF bucket must not be public. `src/lib/storage.ts` is the only code that
@@ -150,6 +188,24 @@ The catalog revalidates hourly, so a new guide appears without a redeploy.
   body.
 - Download IPs are stored hashed, for spotting shared accounts without keeping
   raw addresses.
+- A per-request **nonce-based CSP** is set in `src/middleware.ts` with
+  `strict-dynamic`, so Next's own scripts run and injected ones do not.
+  `style-src` still needs `'unsafe-inline'` — Next injects inline `<style>`
+  while streaming and offers no nonce hook for it. That is a considered
+  trade-off, not an oversight.
+- HSTS (2 years, preload), `Permissions-Policy` denying camera/mic/geo/payment,
+  `X-Frame-Options: DENY`, `frame-ancestors 'none'`, COOP `same-origin`, and no
+  `X-Powered-By`.
+- **Rate limiting** (`src/lib/rate-limit.ts`) on promo redemption (5 / 5 min —
+  codes are guessable, so this is where volume pays off), downloads (30 / 5 min),
+  checkout (12 / min), and magic-link sign-in (per address and per IP, since
+  each request spends money on email).
+
+  It counts **per server instance**: exact on a single VPS, per warm lambda on
+  serverless, so the real ceiling is `limit × instances`. That still defeats the
+  attacks it targets, all of which need volume through one path. Every caller
+  goes through one `hit()` function — swap it for Upstash or Vercel KV if you
+  need an exact global limit.
 
 ## Deploying to Vercel
 

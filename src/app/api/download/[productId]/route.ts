@@ -14,6 +14,7 @@ import { db } from "@/db";
 import { downloadLogs, products } from "@/db/schema";
 import { resolveAccess } from "@/lib/entitlements";
 import { createDownloadUrl } from "@/lib/storage";
+import { hit, tooManyRequests } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,13 @@ export async function GET(
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.redirect(new URL("/signin", req.url));
+  }
+
+  // A legitimate customer clicks download a handful of times. This ceiling only
+  // bites on scripted enumeration of the library.
+  const limit = hit(`download:${session.user.id}`, 30, 300);
+  if (!limit.ok) {
+    return tooManyRequests(limit, "Too many downloads. Please wait a few minutes.");
   }
 
   const [product] = await db

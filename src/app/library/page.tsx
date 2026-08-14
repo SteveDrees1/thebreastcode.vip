@@ -6,7 +6,7 @@ import { listLibrary } from "@/lib/entitlements";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Your library" };
+export const metadata: Metadata = { title: "Your library", robots: { index: false } };
 
 export default async function LibraryPage({
   searchParams,
@@ -22,62 +22,70 @@ export default async function LibraryPage({
   return (
     <div>
       {redeemed ? (
-        <div className="mb-8 rounded-xl border border-accent bg-accent-soft p-4">
-          <p className="font-medium">{redeemed}</p>
+        <div role="status" className="panel mb-8 border-copper/40 p-4">
+          <p className="font-display font-semibold text-copper">{redeemed}</p>
         </div>
       ) : null}
 
       {checkout === "success" ? (
-        <div className="mb-8 rounded-xl border border-accent bg-accent-soft p-4">
-          <p className="font-medium">Thank you — your purchase is complete.</p>
-          <p className="mt-1 text-sm text-ink-soft">
-            If a guide is not listed yet, refresh in a moment: payment confirmation can
+        <div role="status" className="panel mb-8 border-copper/40 p-5">
+          <p className="font-display font-semibold text-copper">
+            Thank you — your purchase is complete.
+          </p>
+          <p className="mt-1.5 text-sm text-muted">
+            If a set is not listed yet, refresh in a moment: payment confirmation can
             take a few seconds to arrive.
           </p>
         </div>
       ) : null}
 
-      <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="font-serif text-3xl">Your library</h1>
-        <Link href="/redeem" className="text-sm text-accent underline">
-          Redeem a code
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="label label-copper">Your account</p>
+          <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">Library</h1>
+        </div>
+        <Link href="/redeem" className="label transition hover:text-copper">
+          Redeem a code →
         </Link>
       </header>
 
+      <hr className="rule mt-6 mb-9" />
+
       {library.length === 0 ? (
-        <div className="mt-8 rounded-xl border border-dashed border-line p-10 text-center">
-          <p className="font-medium">Nothing here yet.</p>
-          <p className="mt-2 text-sm text-ink-soft">
-            Guides you buy, unlock with all-access, or redeem with a code will appear
-            here.
+        <div className="panel reg p-12 text-center">
+          <p className="font-display text-lg font-semibold">Nothing here yet.</p>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+            Sets you buy, unlock with all-access, or redeem with a code will appear here.
           </p>
-          <Link
-            href="/catalog"
-            className="mt-5 inline-block rounded-full bg-accent px-5 py-2.5 font-medium text-white"
-          >
+          <Link href="/catalog" className="btn btn-primary mt-6">
             Browse the catalog
           </Link>
         </div>
       ) : (
-        <ul className="mt-8 divide-y divide-line border-y border-line">
-          {library.map((entry) => (
-            <li key={entry.id} className="flex flex-wrap items-center gap-4 py-4">
+        <ul className="grid gap-4">
+          {library.map((entry, i) => (
+            <li
+              key={entry.id}
+              className="panel reg flex flex-wrap items-center gap-5 p-5"
+            >
+              <span className="label label-copper">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+
               <div className="min-w-0 flex-1">
                 <Link
                   href={`/catalog/${entry.slug}`}
-                  className="font-medium hover:underline"
+                  className="font-display font-medium transition hover:text-copper"
                 >
                   {entry.title}
                 </Link>
-                <p className="text-sm text-ink-soft">
-                  {entry.via === "subscription" ? "Included with all-access" : "Owned"}
-                  {entry.pageCount ? ` · ${entry.pageCount} pages` : ""}
+                <p className="label mt-1">
+                  {entry.via === "subscription" ? "All-access" : "Owned"}
+                  {entry.pageCount ? ` · ${entry.pageCount} plates` : ""}
                 </p>
               </div>
-              <a
-                href={`/api/download/${entry.id}`}
-                className="rounded-full bg-accent px-5 py-2 text-sm font-medium text-white"
-              >
+
+              <a href={`/api/download/${entry.id}`} className="btn btn-primary shrink-0">
                 Download
               </a>
             </li>

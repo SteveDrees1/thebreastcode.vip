@@ -14,6 +14,7 @@ import { bundles, products } from "@/db/schema";
 import { env } from "@/lib/env";
 import { getOrCreateCustomer, stripe } from "@/lib/stripe";
 import { hasAccess, hasActiveSubscription } from "@/lib/entitlements";
+import { hit, tooManyRequests } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   kind: z.enum(["product", "bundle", "subscription"]),
@@ -27,12 +28,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   }
 
+  const userId = session.user.id;
+
+  // Creating checkout sessions is cheap for us but not free at Stripe, and a
+  // loop here would pollute the dashboard with abandoned sessions.
+  const limit = hit(`checkout:${userId}`, 12, 60);
+  if (!limit.ok) {
+    return tooManyRequests(limit, "Too many attempts. Please wait a moment.");
+  }
+
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
   const { kind, slug } = parsed.data;
-  const userId = session.user.id;
 
   const customerId = await getOrCreateCustomer(userId, session.user.email);
   const successUrl = `${env.siteUrl}/library?checkout=success&session_id={CHECKOUT_SESSION_ID}`;

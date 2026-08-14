@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#07080a"/>
+  <!-- Registration marks and a plate rule, echoing the printed sets. -->
+  <g stroke="#e0913f" stroke-width="2" stroke-linecap="square" fill="none">
+    <path d="M8 7h4M8 7v4"/>
+    <path d="M24 25h-4M24 25v-4"/>
+    <path d="M8 16h16"/>
+  </g>
+</svg>
