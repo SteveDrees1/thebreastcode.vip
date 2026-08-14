@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #14110f;
+  --color-ink-soft: #4a4340;
+  --color-paper: #fbf9f7;
+  --color-surface: #ffffff;
+  --color-line: #e6e0da;
+  --color-accent: #9d2f4d;
+  --color-accent-soft: #f6e8ec;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: ui-serif, Georgia, "Times New Roman", serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-ink: #f4f1ee;
+    --color-ink-soft: #a9a19c;
+    --color-paper: #16130f;
+    --color-surface: #201c18;
+    --color-line: #37302a;
+    --color-accent: #e0819a;
+    --color-accent-soft: #33222a;
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Rendered product descriptions. */
+.prose-basic p {
+  margin-block: 0.75rem;
+  line-height: 1.7;
+}
+.prose-basic ul {
+  margin-block: 0.75rem;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+.prose-basic li {
+  margin-block: 0.25rem;
+}
+.prose-basic strong {
+  font-weight: 600;
+}
