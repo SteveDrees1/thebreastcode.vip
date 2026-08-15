@@ -8,7 +8,16 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         // Nothing here is useful to a crawler, and several are per-customer.
-        disallow: ["/api/", "/library", "/account", "/referrals", "/redeem", "/signin", "/r/"],
+        disallow: [
+          "/api/",
+          "/admin",
+          "/library",
+          "/account",
+          "/referrals",
+          "/redeem",
+          "/signin",
+          "/r/",
+        ],
       },
     ],
     sitemap: `${env.siteUrl}/sitemap.xml`,

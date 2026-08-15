@@ -208,6 +208,36 @@ landmark regions, `:focus-visible` rings in a colour that stays legible against
 both the ground and the copper accents, labelled controls, and `role="alert"` on
 error text.
 
+## The console (`/admin`)
+
+Price changes, publishing, bundles and promo codes — the things that previously
+needed raw SQL. Grant access with:
+
+```sql
+UPDATE users SET is_admin = true WHERE email = 'you@example.com';
+```
+
+A "Console" link then appears in the header for that account.
+
+**Authorisation is enforced per request, in two independent places**, and the
+distinction matters:
+
+- `requireAdmin()` gates page rendering.
+- `authorize()` in `src/app/admin/actions.ts` gates every mutation.
+
+A server action compiles to its own POST endpoint with a generated id. It is
+reachable by anyone holding that id and it does **not** re-run the layout that
+"protects" the page it was rendered on. A layout check only hides the buttons;
+the action's own check is what stops the request. Both read `is_admin` back from
+the database rather than trusting the session cookie, so revoking admin takes
+effect on the next request instead of whenever the session expires.
+
+Refusal is a 404, not a 403: to anyone without the flag, the console is
+indistinguishable from a URL that does not exist.
+
+Every write calls `revalidateTag(CATALOG_TAG)`, so an edit reaches the
+storefront immediately despite the catalog cache.
+
 ## What the browser is allowed to see
 
 Every response is built from an explicit field list. Nothing is sent because it

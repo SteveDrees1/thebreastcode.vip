@@ -57,6 +57,16 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // The console shows every customer's order history. Nothing about it
+        // may be cached anywhere, or indexed if a URL ever escapes.
+        source: "/admin/:path*",
+        headers: [
+          ...security,
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
+      {
         // Hashed filenames are immutable by definition.
         source: "/_next/static/:path*",
         headers: [
