@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdmin } from "@/lib/admin";
+import { requireConsole } from "@/lib/admin";
 
 // Never cached, never prerendered: this is per-admin and always live.
 export const dynamic = "force-dynamic";
@@ -16,7 +16,8 @@ const NAV = [
   { href: "/admin/products", label: "Sets", key: "01" },
   { href: "/admin/bundles", label: "Bundles", key: "02" },
   { href: "/admin/promos", label: "Promos", key: "03" },
-  { href: "/admin/activity", label: "Activity", key: "04" },
+  { href: "/admin/customers", label: "Customers", key: "04" },
+  { href: "/admin/activity", label: "Activity", key: "05" },
 ];
 
 export default async function AdminLayout({
@@ -24,9 +25,12 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Gates rendering. Note this does NOT protect the server actions — each one
-  // re-authorises independently, because an action is its own endpoint.
-  const admin = await requireAdmin();
+  // Gates rendering for admins and auditors alike. Note this does NOT protect
+  // the server actions — each one re-authorises independently and requires
+  // isAdmin, because an action is its own endpoint and an auditor must not be
+  // able to reach one.
+  const user = await requireConsole();
+  const readOnly = !user.isAdmin;
 
   return (
     <div className="-my-14">
@@ -37,10 +41,24 @@ export default async function AdminLayout({
             className="live-dot inline-block size-1.5 shrink-0 rounded-full bg-cyan"
           />
           <h1 className="font-display text-lg font-bold tracking-tight">Console</h1>
-          <span className="label hidden sm:inline">restricted</span>
+          <span className="label hidden sm:inline">
+            {readOnly ? "read-only" : "restricted"}
+          </span>
         </div>
-        <p className="label truncate">{admin.email}</p>
+        <p className="label truncate">{user.email}</p>
       </div>
+
+      {readOnly ? (
+        <div className="panel mt-5 border-cyan/30 p-3.5">
+          <p className="text-sm text-muted">
+            <span className="label" style={{ color: "var(--color-cyan)" }}>
+              Auditor
+            </span>{" "}
+            — you can see everything here but cannot change anything. Controls that
+            write are hidden, and the server refuses them regardless.
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid gap-10 py-8 lg:grid-cols-[168px_1fr]">
         <nav aria-label="Console" className="lg:sticky lg:top-24 lg:self-start">

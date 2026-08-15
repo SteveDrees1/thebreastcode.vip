@@ -11,13 +11,13 @@ import {
   subscriptions,
   users,
 } from "@/db/schema";
-import { requireAdmin } from "@/lib/admin";
+import { requireConsole } from "@/lib/admin";
 import { formatPrice } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminOverviewPage() {
-  await requireAdmin();
+  await requireConsole();
 
   const [
     [{ value: publishedCount }],

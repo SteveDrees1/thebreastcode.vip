@@ -1,7 +1,7 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { bundles, products, promoCodes } from "@/db/schema";
-import { requireAdmin } from "@/lib/admin";
+import { requireConsole } from "@/lib/admin";
 import { createPromoAction, togglePromoAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export default async function AdminPromosPage({
 }: {
   searchParams: Promise<{ error?: string; created?: string }>;
 }) {
-  await requireAdmin();
+  const user = await requireConsole();
   const { error, created } = await searchParams;
 
   const [codes, productList, bundleList] = await Promise.all([
@@ -70,6 +70,7 @@ export default async function AdminPromosPage({
 
                   {exhausted ? <span className="label">claimed out</span> : null}
 
+                  {user.isAdmin ? (
                   <form action={togglePromoAction}>
                     <input type="hidden" name="id" value={code.id} />
                     <button
@@ -82,6 +83,11 @@ export default async function AdminPromosPage({
                       {code.active ? "active" : "disabled"}
                     </button>
                   </form>
+                  ) : (
+                    <span className={`label ${code.active ? "label-copper" : ""}`}>
+                      {code.active ? "active" : "disabled"}
+                    </span>
+                  )}
                 </li>
               );
             })}
@@ -89,6 +95,7 @@ export default async function AdminPromosPage({
         )}
       </section>
 
+      {user.isAdmin ? (
       <section>
         <p className="label label-copper">New code</p>
         <hr className="rule mt-4 mb-6" />
@@ -184,6 +191,7 @@ export default async function AdminPromosPage({
           </div>
         </form>
       </section>
+      ) : null}
     </div>
   );
 }

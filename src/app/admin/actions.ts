@@ -1,14 +1,14 @@
 "use server";
 
-import { createHash } from "node:crypto";
 import { and, eq, not, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { adminAuditLog, bundleItems, bundles, products, promoCodes } from "@/db/schema";
-import { getAdmin, inputToCents, type AdminUser } from "@/lib/admin";
+import { adminAuditLog, bundleItems, bundles, products, promoCodes, users } from "@/db/schema";
+import { getAdmin, inputToCents, type ConsoleUser } from "@/lib/admin";
+import { diff, hashIp, writeAudit } from "@/lib/audit";
 import { CATALOG_TAG } from "@/lib/catalog";
 import { hit } from "@/lib/rate-limit";
 
@@ -39,59 +39,25 @@ function refreshCatalog() {
   revalidatePath("/", "layout");
 }
 
-type Changes = Record<string, { from: unknown; to: unknown }>;
 
-/** Field-level diff, keeping only what actually moved. */
-function diff<T extends Record<string, unknown>>(before: T, after: T): Changes {
-  const changes: Changes = {};
-  for (const key of Object.keys(after)) {
-    if (before[key] !== after[key]) {
-      changes[key] = { from: before[key] ?? null, to: after[key] ?? null };
-    }
-  }
-  return changes;
-}
-
-/**
- * Write an audit entry.
- *
- * Never allowed to break the operation it records: a logging failure must not
- * roll back a price change the operator believes succeeded. It is logged to the
- * server instead, where it is visible without being destructive.
- */
+/** Attribute an entry to the acting admin and stamp the request address. */
 async function record(
-  admin: AdminUser,
+  admin: ConsoleUser,
   entry: {
     action: string;
     entityType: string;
     entityId?: string | null;
     summary: string;
-    changes?: Changes;
+    changes?: Record<string, { from: unknown; to: unknown }>;
   },
 ) {
-  try {
-    const forwarded = (await headers()).get("x-forwarded-for");
-    const ip = forwarded?.split(",")[0]?.trim();
-
-    await db.insert(adminAuditLog).values({
-      actorId: admin.id,
-      actorEmail: admin.email,
-      action: entry.action,
-      entityType: entry.entityType,
-      entityId: entry.entityId ?? null,
-      summary: entry.summary,
-      changes:
-        entry.changes && Object.keys(entry.changes).length > 0 ? entry.changes : null,
-      ipHash: ip
-        ? createHash("sha256")
-            .update(`${ip}:${process.env.AUTH_SECRET ?? ""}`)
-            .digest("hex")
-            .slice(0, 32)
-        : null,
-    });
-  } catch (error) {
-    console.error("[audit] failed to record admin action", entry.action, error);
-  }
+  const forwarded = (await headers()).get("x-forwarded-for");
+  await writeAudit({
+    ...entry,
+    actorId: admin.id,
+    actorEmail: admin.email,
+    ipHash: hashIp(forwarded?.split(",")[0]?.trim()),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -586,4 +552,70 @@ export async function togglePromoAction(formData: FormData) {
   }
 
   revalidatePath("/admin/promos");
+}
+
+// ---------------------------------------------------------------------------
+// Flags
+// ---------------------------------------------------------------------------
+
+/**
+ * Mark an audit entry for follow-up.
+ *
+ * Flagging is itself a change, but it is deliberately NOT audited: an auditor
+ * marking twenty entries during a review would bury the very entries they were
+ * reading. The flag records who set it in the note instead.
+ */
+export async function toggleAuditFlagAction(formData: FormData) {
+  const admin = await authorize("flag");
+  const id = String(formData.get("id") ?? "");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 300);
+
+  const [current] = await db
+    .select({ flagged: adminAuditLog.flagged })
+    .from(adminAuditLog)
+    .where(eq(adminAuditLog.id, id))
+    .limit(1);
+  if (!current) return;
+
+  await db
+    .update(adminAuditLog)
+    .set({
+      flagged: !current.flagged,
+      flagNote: current.flagged ? null : note || `Flagged by ${admin.email}`,
+    })
+    .where(eq(adminAuditLog.id, id));
+
+  revalidatePath("/admin/activity");
+}
+
+/** Mark a customer account for closer watching. */
+export async function toggleUserFlagAction(formData: FormData) {
+  const admin = await authorize("flag");
+  const id = String(formData.get("id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 300);
+
+  const [current] = await db
+    .select({ flagged: users.flagged, email: users.email })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+  if (!current) return;
+
+  const next = !current.flagged;
+  await db
+    .update(users)
+    .set({ flagged: next, flagReason: next ? reason || "No reason given" : null })
+    .where(eq(users.id, id));
+
+  // Flagging a customer IS audited: it is a judgement about a person, and the
+  // reasoning behind it should be reconstructable later.
+  await record(admin, {
+    action: next ? "user.flag" : "user.unflag",
+    entityType: "user",
+    entityId: id,
+    summary: `${next ? "Flagged" : "Unflagged"} ${current.email}${next && reason ? ` — ${reason}` : ""}`,
+    changes: { flagged: { from: current.flagged, to: next } },
+  });
+
+  revalidatePath("/admin/customers");
 }

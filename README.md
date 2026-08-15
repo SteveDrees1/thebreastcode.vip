@@ -210,14 +210,24 @@ error text.
 
 ## The console (`/admin`)
 
-Price changes, publishing, bundles and promo codes — the things that previously
-needed raw SQL. Grant access with:
+Price changes, publishing, bundles, promo codes and customers — the things that
+previously needed raw SQL.
+
+Two levels of access, as separate columns rather than a rank:
 
 ```sql
-UPDATE users SET is_admin = true WHERE email = 'you@example.com';
+-- full read/write
+UPDATE users SET is_admin  = true WHERE email = 'you@example.com';
+-- read-only: sees everything, changes nothing
+UPDATE users SET can_audit = true WHERE email = 'accountant@example.com';
 ```
 
-A "Console" link then appears in the header for that account.
+A "Console" link appears in the header for either. `is_admin` implies read
+access; `can_audit` never implies write — that asymmetry is the whole point of
+the auditor role, so the checks are separate functions
+(`requireConsole` / `requireAdmin` / `getAdmin`) and are never interchangeable.
+For an auditor the write controls are hidden **and** every action refuses them
+server-side; hiding a button is a courtesy, not a control.
 
 **Authorisation is enforced per request, in two independent places**, and the
 distinction matters:
@@ -256,6 +266,31 @@ Two details make it trustworthy rather than decorative:
   an insert failed. Failures go to the server log instead.
 
 IP addresses are stored hashed, as elsewhere.
+
+**The CLI writes to the same log.** `import:product` and `make:cover` change the
+catalog exactly as much as the console does, so a trail that covered only the UI
+would invite the wrong conclusion when someone read it later. Terminal runs have
+no session, so `actor_id` stays null and the actor is the shell user
+(`cli:steve`) unless you name yourself:
+
+```bash
+npm run import:product -- --pdf ./Joinery.pdf --slug joinery-reference \
+  --actor you@example.com
+```
+
+### Flags
+
+Two kinds, both surfaced in the console:
+
+- **Audit entries** can be flagged for follow-up, with a "flagged only" filter —
+  for marking a change you want to come back to. Flagging is deliberately *not*
+  itself audited: an auditor marking twenty entries during a review would bury
+  the entries they were reading.
+- **Customer accounts** can be flagged with a reason, shown alongside download
+  counts, distinct hashed IPs and referral counts — the signals that actually
+  suggest a shared login or referral gaming. Flagging a person **is** audited,
+  because it is a judgement about someone and the reasoning should be
+  reconstructable.
 
 ## What the browser is allowed to see
 

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { products } from "@/db/schema";
-import { centsToInput, requireAdmin } from "@/lib/admin";
+import { centsToInput, requireConsole } from "@/lib/admin";
 import { saveProductAction } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export default async function AdminProductPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ saved?: string; error?: string }>;
 }) {
-  await requireAdmin();
+  const user = await requireConsole();
 
   const { id } = await params;
   const { saved, error } = await searchParams;
@@ -54,6 +54,11 @@ export default async function AdminProductPage({
         </p>
       ) : null}
 
+      <fieldset
+        disabled={!user.isAdmin}
+        className="contents"
+        aria-label={user.isAdmin ? undefined : "Read-only: you cannot change these"}
+      >
       <form action={saveProductAction} className="mt-7 flex flex-col gap-6">
         <input type="hidden" name="id" value={product.id} />
 
@@ -169,15 +174,18 @@ export default async function AdminProductPage({
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <button type="submit" className="btn btn-primary">
-            Save changes
-          </button>
-          <Link href="/admin/products" className="btn btn-ghost">
-            Cancel
-          </Link>
-        </div>
+        {user.isAdmin ? (
+          <div className="flex flex-wrap gap-3">
+            <button type="submit" className="btn btn-primary">
+              Save changes
+            </button>
+            <Link href="/admin/products" className="btn btn-ghost">
+              Cancel
+            </Link>
+          </div>
+        ) : null}
       </form>
+      </fieldset>
     </div>
   );
 }

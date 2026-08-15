@@ -2,7 +2,7 @@ import Link from "next/link";
 import { count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { bundleItems, bundles } from "@/db/schema";
-import { requireAdmin } from "@/lib/admin";
+import { requireConsole } from "@/lib/admin";
 import { formatPrice } from "@/lib/stripe";
 import { createBundleAction } from "../actions";
 
@@ -15,7 +15,7 @@ export default async function AdminBundlesPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requireAdmin();
+  const user = await requireConsole();
   const { error } = await searchParams;
 
   const all = await db
@@ -77,6 +77,7 @@ export default async function AdminBundlesPage({
         )}
       </section>
 
+      {user.isAdmin ? (
       <section>
         <p className="label label-copper">New bundle</p>
         <hr className="rule mt-4 mb-6" />
@@ -147,6 +148,7 @@ export default async function AdminBundlesPage({
           </div>
         </form>
       </section>
+      ) : null}
     </div>
   );
 }

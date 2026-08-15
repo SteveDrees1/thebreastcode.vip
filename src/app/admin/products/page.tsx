@@ -2,7 +2,7 @@ import Link from "next/link";
 import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { products } from "@/db/schema";
-import { requireAdmin } from "@/lib/admin";
+import { requireConsole } from "@/lib/admin";
 import { formatPrice } from "@/lib/stripe";
 import { toggleProductFeaturedAction, toggleProductStatusAction } from "../actions";
 
@@ -17,7 +17,7 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default async function AdminProductsPage() {
-  await requireAdmin();
+  const user = await requireConsole();
 
   const all = await db.select().from(products).orderBy(desc(products.createdAt));
 
@@ -66,7 +66,21 @@ export default async function AdminProductsPage() {
                 {formatPrice(product.priceCents, product.currency)}
               </span>
 
-              {/* Quick toggles: the common edits should not need a form page. */}
+              {/* Quick toggles: the common edits should not need a form page.
+                  Auditors see the state as plain text instead. */}
+              {!user.isAdmin ? (
+                <>
+                  <span className={`label ${product.featured ? "label-copper" : ""}`}>
+                    {product.featured ? "★ featured" : "not featured"}
+                  </span>
+                  <span className={`label ${STATUS_TONE[product.status] ?? ""}`}>
+                    {product.status}
+                  </span>
+                </>
+              ) : null}
+
+              {user.isAdmin ? (
+              <>
               <form action={toggleProductFeaturedAction}>
                 <input type="hidden" name="id" value={product.id} />
                 <button
@@ -94,6 +108,8 @@ export default async function AdminProductsPage() {
                   {product.status}
                 </button>
               </form>
+              </>
+              ) : null}
             </li>
           ))}
         </ul>

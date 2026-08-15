@@ -18,6 +18,7 @@ declare module "next-auth" {
     user: {
       id: string;
       isAdmin: boolean;
+      canAudit: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -63,7 +64,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      * default: a field reaches the browser only if someone adds it here.
      */
     session({ session, user }) {
-      const row = user as typeof user & { isAdmin?: boolean };
+      const row = user as typeof user & { isAdmin?: boolean; canAudit?: boolean };
       return {
         expires: session.expires,
         user: {
@@ -71,9 +72,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: row.name,
           email: row.email,
           image: row.image,
-          // Kept because it gates admin-only UI; it is the user's own flag and
-          // is never authorisation on its own — the server re-checks.
+          // Kept because they gate console links in the header. Neither is
+          // authorisation on its own — every page and action re-checks against
+          // the database.
           isAdmin: row.isAdmin ?? false,
+          canAudit: row.canAudit ?? false,
         },
       };
     },

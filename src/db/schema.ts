@@ -59,8 +59,21 @@ export const users = pgTable("users", {
    */
   referralCode: text("referral_code").notNull().unique().$defaultFn(generateReferralCode),
 
-  /** Staff flag, gates /admin. */
+  /** Staff flag: full read/write access to the console. */
   isAdmin: boolean("is_admin").notNull().default(false),
+
+  /**
+   * Read-only console access — sees everything, changes nothing.
+   *
+   * Deliberately a separate column rather than a rank below `isAdmin`, so an
+   * accountant or a second pair of eyes can be given visibility without any
+   * ability to move a price. `isAdmin` implies this; the reverse never holds.
+   */
+  canAudit: boolean("can_audit").notNull().default(false),
+
+  /** Marks an account for closer watching (shared logins, referral abuse). */
+  flagged: boolean("flagged").notNull().default(false),
+  flagReason: text("flag_reason"),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -470,12 +483,17 @@ export const adminAuditLog = pgTable(
     /** Field-level before/after, for the changes worth reconstructing. */
     changes: jsonb("changes").$type<Record<string, { from: unknown; to: unknown }>>(),
 
+    /** Marked for follow-up. The note says why, for whoever reads it later. */
+    flagged: boolean("flagged").notNull().default(false),
+    flagNote: text("flag_note"),
+
     ipHash: text("ip_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("admin_audit_log_created_idx").on(t.createdAt),
     index("admin_audit_log_entity_idx").on(t.entityType, t.entityId),
+    index("admin_audit_log_flagged_idx").on(t.flagged),
   ],
 );
 

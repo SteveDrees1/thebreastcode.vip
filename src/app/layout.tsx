@@ -97,7 +97,7 @@ export default async function RootLayout({
             <div className="ml-auto flex items-center gap-4 text-sm">
               {session?.user ? (
                 <>
-                  {session.user.isAdmin ? (
+                  {session.user.isAdmin || session.user.canAudit ? (
                     <Link
                       href="/admin"
                       className="label label-copper transition hover:text-text"

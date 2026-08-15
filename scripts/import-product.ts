@@ -31,6 +31,7 @@
 import "dotenv/config";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { userInfo } from "node:os";
 import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { eq } from "drizzle-orm";
@@ -39,6 +40,26 @@ import { z } from "zod";
 import { db } from "../src/db";
 import { products } from "../src/db/schema";
 import { env } from "../src/lib/env";
+import { diff, writeAudit } from "../src/lib/audit";
+
+/**
+ * Who to credit for a terminal run.
+ *
+ * A set imported from a shell changes the catalog exactly as much as the same
+ * edit made in the console, so it belongs in the same log — a trail with a hole
+ * in it invites the wrong conclusion when someone reads it later. There is no
+ * session here, so `actorId` stays null and the actor is identified by the
+ * shell user unless `--actor` names a real person.
+ */
+function cliActor(): string {
+  const explicit = arg("actor");
+  if (explicit) return explicit;
+  try {
+    return `cli:${userInfo().username}`;
+  } catch {
+    return "cli:unknown";
+  }
+}
 
 const manifestSchema = z.object({
   slug: z.string().min(1),
@@ -226,6 +247,18 @@ async function main() {
       })
       .where(eq(products.id, existing.id));
 
+    await writeAudit({
+      actorEmail: cliActor(),
+      action: "product.import",
+      entityType: "product",
+      entityId: existing.id,
+      summary: `Re-imported “${manifest.title}” from the command line`,
+      changes: diff(
+        { sourceSha256: existing.sourceSha256, status: existing.status },
+        { sourceSha256: sha256, status },
+      ),
+    });
+
     console.log(`updated "${manifest.title}" (${manifest.slug}) — status ${status}`);
     if (priceArg !== undefined && Number(priceArg) !== existing.priceCents) {
       console.log(
@@ -235,13 +268,28 @@ async function main() {
     }
   } else {
     const publish = flag("publish");
-    await db.insert(products).values({
+    const [created] = await db
+      .insert(products)
+      .values({
       ...shared,
       slug: manifest.slug,
       priceCents: Number(priceArg),
-      status: publish ? "published" : "draft",
-      publishedAt: publish ? new Date() : null,
+        status: publish ? "published" : "draft",
+        publishedAt: publish ? new Date() : null,
+      })
+      .returning({ id: products.id });
+    await writeAudit({
+      actorEmail: cliActor(),
+      action: "product.import",
+      entityType: "product",
+      entityId: created?.id ?? null,
+      summary: `Imported “${manifest.title}” from the command line`,
+      changes: {
+        priceCents: { from: null, to: Number(priceArg) },
+        status: { from: null, to: publish ? "published" : "draft" },
+      },
     });
+
     console.log(
       `created "${manifest.title}" (${manifest.slug}) — ` +
         `${publish ? "published" : "draft"}, ${priceArg} cents`,

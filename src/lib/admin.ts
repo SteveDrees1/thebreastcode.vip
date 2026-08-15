@@ -1,16 +1,26 @@
 /**
- * Admin authorisation.
+ * Console authorisation.
  *
- * `requireAdmin()` must be called at the top of every admin page *and* every
- * admin server action. Gating the layout alone is not enough and it is worth
- * being precise about why: a server action compiles to its own POST endpoint
- * with a generated id, reachable by anyone who has that id, and it does not
- * re-run the layout that "protects" the page it was rendered on. A layout check
- * hides the buttons; only the action's own check stops the request.
+ * Two levels, deliberately separate columns rather than a rank:
  *
- * The session's `isAdmin` is never trusted as the decision either — it is read
- * back from the database here, so revoking someone's admin flag takes effect on
- * their next request rather than whenever their session happens to expire.
+ *   is_admin   full read/write
+ *   can_audit  read-only — sees everything, changes nothing
+ *
+ * `is_admin` implies read access; `can_audit` never implies write. That
+ * asymmetry is the whole point of the auditor role, so the two checks are
+ * different functions and are never interchangeable:
+ *
+ *   requireConsole()  gates a page a viewer may read
+ *   requireAdmin()    gates a page only a writer may read
+ *   getAdmin()        gates a mutation — used by every server action
+ *
+ * All of them read the flags back from the database rather than trusting the
+ * session cookie, so revoking access takes effect on the next request instead
+ * of whenever the session happens to expire.
+ *
+ * `requireAdmin`/`requireConsole` refuse with 404 rather than 403: to anyone
+ * without a flag, the console is indistinguishable from a URL that does not
+ * exist.
  */
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
@@ -18,48 +28,62 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 
-export interface AdminUser {
+export interface ConsoleUser {
   id: string;
   email: string;
+  /** May change things. */
+  isAdmin: boolean;
+  /** May look. True for admins too. */
+  canAudit: boolean;
 }
 
-/**
- * Returns the signed-in admin, or refuses.
- *
- * Refusal is a 404 rather than a 403 on purpose: to anyone without the flag,
- * the admin area should be indistinguishable from a URL that does not exist.
- */
-export async function requireAdmin(): Promise<AdminUser> {
-  const session = await auth();
-  if (!session?.user?.id) notFound();
-
-  const [user] = await db
-    .select({ id: users.id, email: users.email, isAdmin: users.isAdmin })
-    .from(users)
-    .where(eq(users.id, session.user.id))
-    .limit(1);
-
-  if (!user?.isAdmin) notFound();
-
-  return { id: user.id, email: user.email };
-}
-
-/**
- * Same check for server actions, which must not call `notFound()` — throwing a
- * navigation signal from an action produces a confusing client error rather
- * than a refusal. Returns null instead so callers can fail cleanly.
- */
-export async function getAdmin(): Promise<AdminUser | null> {
+async function loadConsoleUser(): Promise<ConsoleUser | null> {
   const session = await auth();
   if (!session?.user?.id) return null;
 
   const [user] = await db
-    .select({ id: users.id, email: users.email, isAdmin: users.isAdmin })
+    .select({
+      id: users.id,
+      email: users.email,
+      isAdmin: users.isAdmin,
+      canAudit: users.canAudit,
+    })
     .from(users)
     .where(eq(users.id, session.user.id))
     .limit(1);
 
-  return user?.isAdmin ? { id: user.id, email: user.email } : null;
+  if (!user) return null;
+  if (!user.isAdmin && !user.canAudit) return null;
+
+  // An admin can always read; an auditor can only read.
+  return { ...user, canAudit: user.canAudit || user.isAdmin };
+}
+
+/** Page gate: admin or auditor. */
+export async function requireConsole(): Promise<ConsoleUser> {
+  const user = await loadConsoleUser();
+  if (!user) notFound();
+  return user;
+}
+
+/** Page gate: admin only. */
+export async function requireAdmin(): Promise<ConsoleUser> {
+  const user = await loadConsoleUser();
+  if (!user?.isAdmin) notFound();
+  return user;
+}
+
+/**
+ * Mutation gate for server actions, which must not call `notFound()` —
+ * throwing a navigation signal from an action produces a confusing client
+ * error rather than a refusal. Returns null so callers can fail cleanly.
+ *
+ * Note this requires `isAdmin`, not console access: an auditor reaching a
+ * server action id must be refused exactly like a stranger.
+ */
+export async function getAdmin(): Promise<ConsoleUser | null> {
+  const user = await loadConsoleUser();
+  return user?.isAdmin ? user : null;
 }
 
 /** Money helpers: the database stores integer cents, forms speak dollars. */

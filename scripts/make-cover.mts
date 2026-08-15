@@ -16,6 +16,7 @@
  */
 import "dotenv/config";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { userInfo } from "node:os";
 import path from "node:path";
 import { createCanvas } from "@napi-rs/canvas";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
@@ -24,12 +25,25 @@ import sharp from "sharp";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { db } from "../src/db/index.js";
 import { products } from "../src/db/schema.js";
+import { writeAudit } from "../src/lib/audit.js";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i === -1 ? undefined : process.argv[i + 1];
 }
 const flag = (name: string) => process.argv.includes(`--${name}`);
+
+/** Terminal runs have no session, so credit the shell user unless told otherwise. */
+function cliActor(): string {
+  const explicit = arg("actor");
+  if (explicit) return explicit;
+  try {
+    return `cli:${userInfo().username}`;
+  } catch {
+    return "cli:unknown";
+  }
+}
+
 
 /** Rasterise one page to WebP at the requested width. */
 async function renderCover(pdf: Buffer, width: number, quality: number, pageNumber: number) {
@@ -145,6 +159,15 @@ async function main() {
       .set({ coverImageUrl: url, updatedAt: new Date() })
       .where(eq(products.id, product.id));
 
+    await writeAudit({
+      actorEmail: cliActor(),
+      action: "product.cover",
+      entityType: "product",
+      entityId: product.id,
+      summary: `Set a local cover for “${slug}”`,
+      changes: { coverImageUrl: { from: null, to: url } },
+    });
+
     console.log(`wrote public/covers/${slug}.webp`);
     console.log(`set coverImageUrl for "${slug}" to ${url}`);
     console.log("commit the file so it deploys with the site");
@@ -189,6 +212,15 @@ async function main() {
     .update(products)
     .set({ coverImageUrl: url, updatedAt: new Date() })
     .where(eq(products.id, product.id));
+
+  await writeAudit({
+    actorEmail: cliActor(),
+    action: "product.cover",
+    entityType: "product",
+    entityId: product.id,
+    summary: `Uploaded a cover for “${slug}”`,
+    changes: { coverImageUrl: { from: null, to: url } },
+  });
 
   console.log(`uploaded ${key}\nset coverImageUrl for "${slug}" to ${url}`);
   process.exit(0);

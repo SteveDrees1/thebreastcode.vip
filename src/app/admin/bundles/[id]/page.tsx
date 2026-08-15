@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { asc, eq, inArray, not } from "drizzle-orm";
 import { db } from "@/db";
 import { bundleItems, bundles, products } from "@/db/schema";
-import { centsToInput, requireAdmin } from "@/lib/admin";
+import { centsToInput, requireConsole } from "@/lib/admin";
 import { formatPrice } from "@/lib/stripe";
 import {
   addBundleItemAction,
@@ -20,7 +20,7 @@ export default async function AdminBundlePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ saved?: string; created?: string; error?: string }>;
 }) {
-  await requireAdmin();
+  const user = await requireConsole();
 
   const { id } = await params;
   const { saved, created, error } = await searchParams;
@@ -133,6 +133,7 @@ export default async function AdminBundlePage({
                 <span className="font-display text-sm font-semibold tabular-nums">
                   {formatPrice(item.priceCents, item.currency)}
                 </span>
+                {user.isAdmin ? (
                 <form action={removeBundleItemAction}>
                   <input type="hidden" name="bundleId" value={bundle.id} />
                   <input type="hidden" name="productId" value={item.id} />
@@ -144,12 +145,13 @@ export default async function AdminBundlePage({
                     remove
                   </button>
                 </form>
+                ) : null}
               </li>
             ))}
           </ul>
         )}
 
-        {available.length > 0 ? (
+        {user.isAdmin && available.length > 0 ? (
           <form action={addBundleItemAction} className="mt-5 flex flex-wrap gap-3">
             <input type="hidden" name="bundleId" value={bundle.id} />
             <label htmlFor="add-product" className="sr-only">
@@ -172,6 +174,7 @@ export default async function AdminBundlePage({
       </section>
 
       {/* ── Details ───────────────────────────────────────────────────── */}
+      {user.isAdmin ? (
       <section>
         <p className="label label-copper">Details</p>
         <hr className="rule mt-4 mb-6" />
@@ -255,6 +258,7 @@ export default async function AdminBundlePage({
           </div>
         </form>
       </section>
+      ) : null}
     </div>
   );
 }
