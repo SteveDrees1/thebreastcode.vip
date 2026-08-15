@@ -75,6 +75,13 @@ npm run make:cover -- --pdf ./Guide.pdf --slug my-guide --local
 `--local` writes the cover to `public/covers/` so you need no public bucket at
 all. Full options in [Publishing a PDF](#publishing-a-pdf).
 
+## Contributing
+
+Each feature, bug or issue gets its own branch, named
+`{type}/{short-description}/{status}` — see [CONTRIBUTING.md](CONTRIBUTING.md).
+`./scripts/new-branch.sh feature "add referral credits" complete` cuts one and
+validates the name first.
+
 ## Checks
 
 ```bash
