@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { hit } from "@/lib/rate-limit";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -62,9 +63,9 @@ export default async function SignInPage({
           aria-describedby={error ? "signin-error" : undefined}
           className="field mt-2.5"
         />
-        <button type="submit" className="btn btn-primary mt-4 w-full">
+        <SubmitButton className="btn btn-primary mt-4 w-full" pendingLabel="Sending…">
           Email me a link
-        </button>
+        </SubmitButton>
       </form>
 
       {error ? (

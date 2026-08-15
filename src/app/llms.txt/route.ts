@@ -13,6 +13,7 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { bundles, products } from "@/db/schema";
+import { brand } from "@/lib/brand";
 import { env } from "@/lib/env";
 
 // Regenerate hourly. A model reading a slightly stale map is fine; hitting the
@@ -76,7 +77,7 @@ export async function GET() {
       cents / 100,
     );
 
-  const body = `# The Breast Code
+  const body = `# ${brand.name}
 
 > Print-ready reference plate sets sold as PDFs. Each set is a fixed-layout
 > document of dimensioned diagrams, spec tables keyed to real stock, and working

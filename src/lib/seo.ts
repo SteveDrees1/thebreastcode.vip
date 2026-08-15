@@ -1,3 +1,4 @@
+import { brand } from "./brand";
 import { env } from "./env";
 
 /**
@@ -25,11 +26,10 @@ export function organizationJsonLd() {
     "@context": "https://schema.org",
     "@type": "Organization",
     "@id": `${env.siteUrl}/#organization`,
-    name: "The Breast Code",
+    name: brand.name,
     url: env.siteUrl,
     logo: `${env.siteUrl}/icon.svg`,
-    description:
-      "Print-ready reference plate sets sold as PDFs: dimensioned diagrams, spec tables and working notes.",
+    description: brand.description,
   };
 }
 
@@ -39,7 +39,7 @@ export function webSiteJsonLd() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "@id": `${env.siteUrl}/#website`,
-    name: "The Breast Code",
+    name: brand.name,
     url: env.siteUrl,
     publisher: { "@id": `${env.siteUrl}/#organization` },
     inLanguage: "en-US",

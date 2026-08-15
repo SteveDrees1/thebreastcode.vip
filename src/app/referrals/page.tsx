@@ -9,6 +9,7 @@ import { getReferralSummary } from "@/lib/referrals";
 import { ownedProductIds } from "@/lib/entitlements";
 import { spendCreditAction } from "@/app/actions";
 import { CopyField } from "@/components/copy-field";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -90,9 +91,7 @@ export default async function ReferralsPage({
                 </option>
               ))}
             </select>
-            <button type="submit" className="btn btn-primary">
-              Claim it free
-            </button>
+            <SubmitButton pendingLabel="Claiming…">Claim it free</SubmitButton>
           </form>
         )}
 

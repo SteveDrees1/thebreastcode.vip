@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { redeemCodeAction } from "@/app/actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -43,9 +44,9 @@ export default async function RedeemPage({
           aria-describedby={error ? "redeem-error" : undefined}
           className="field mt-2.5 tracking-[0.2em] uppercase"
         />
-        <button type="submit" className="btn btn-primary mt-4 w-full">
+        <SubmitButton className="btn btn-primary mt-4 w-full" pendingLabel="Redeeming…">
           Redeem
-        </button>
+        </SubmitButton>
       </form>
 
       {error ? (

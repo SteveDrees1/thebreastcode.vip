@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getProductBySlug } from "@/lib/catalog";
+import { brand, palette } from "@/lib/brand";
 
 /**
  * Per-set social card.
@@ -12,10 +13,7 @@ export const alt = "Reference plate set";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const COPPER = "#e0913f";
-const INK = "#07080a";
-const TEXT = "#e9ecf1";
-const MUTED = "#98a1b1";
+const { copper: COPPER, ink: INK, text: TEXT, muted: MUTED } = palette;
 
 function RegistrationMark({ style }: { style: React.CSSProperties }) {
   return (
@@ -33,8 +31,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   // A card is not worth a 500. If the lookup fails, fall back to the shop name.
   const product = await getProductBySlug(slug).catch(() => undefined);
 
-  const title = product?.title ?? "The Breast Code";
-  const subtitle = product?.subtitle ?? "Print-ready reference plate sets";
+  const title = product?.title ?? brand.name;
+  const subtitle = product?.subtitle ?? brand.tagline;
   const docId = product?.sourceDocId;
   const plates = product?.pageCount;
 
@@ -62,7 +60,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
 
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 22 }}>
           <span style={{ letterSpacing: 6, color: MUTED, textTransform: "uppercase" }}>
-            Original Reference Series
+            {brand.seriesName}
           </span>
           {docId ? (
             <span style={{ letterSpacing: 4, color: COPPER }}>NO. {docId}</span>
@@ -112,7 +110,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           {plates ? <span>{plates} Plates</span> : null}
           <span>PDF · Letter</span>
           <span>Scale N.T.S.</span>
-          <span style={{ marginLeft: "auto", color: TEXT }}>thebreastcode.vip</span>
+          <span style={{ marginLeft: "auto", color: TEXT }}>{brand.domain}</span>
         </div>
       </div>
     ),

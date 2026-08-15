@@ -7,6 +7,7 @@ import { getProductBySlug } from "@/lib/catalog";
 import { env } from "@/lib/env";
 import { formatPrice } from "@/lib/stripe";
 import { breadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
+import { brand } from "@/lib/brand";
 import { CheckoutButton } from "@/components/checkout-button";
 
 /**
@@ -69,7 +70,7 @@ export default async function ProductPage({
     name: product.title,
     description: product.subtitle ?? product.description.slice(0, 300),
     sku: product.sourceDocId ?? product.slug,
-    brand: { "@type": "Brand", name: "The Breast Code" },
+    brand: { "@type": "Brand", name: brand.name },
     ...(product.coverImageUrl ? { image: [product.coverImageUrl] } : {}),
     offers: {
       "@type": "Offer",

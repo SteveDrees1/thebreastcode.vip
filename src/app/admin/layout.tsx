@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireConsole } from "@/lib/admin";
+import { getConsoleUser } from "@/lib/admin";
 
 // Never cached, never prerendered: this is per-admin and always live.
 export const dynamic = "force-dynamic";
@@ -25,11 +25,18 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Gates rendering for admins and auditors alike. Note this does NOT protect
-  // the server actions — each one re-authorises independently and requires
-  // isAdmin, because an action is its own endpoint and an auditor must not be
-  // able to reach one.
-  const user = await requireConsole();
+  // Deliberately non-throwing. Each admin page calls requireConsole/requireAdmin
+  // itself; a notFound() from a page sets a real 404, while one thrown here in
+  // the layout would render the 404 body with a 200 status. When there is no
+  // authorised user we render children bare, so the 404 appears without any
+  // console chrome around it.
+  //
+  // Note this does NOT protect the server actions either — each one
+  // re-authorises independently and requires isAdmin, because an action is its
+  // own endpoint and an auditor must not be able to reach one.
+  const user = await getConsoleUser();
+  if (!user) return <>{children}</>;
+
   const readOnly = !user.isAdmin;
 
   return (

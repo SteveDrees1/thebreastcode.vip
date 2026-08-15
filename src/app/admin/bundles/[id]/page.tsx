@@ -10,6 +10,7 @@ import {
   removeBundleItemAction,
   saveBundleAction,
 } from "../../actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -249,9 +250,7 @@ export default async function AdminBundlePage({
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button type="submit" className="btn btn-primary">
-              Save changes
-            </button>
+            <SubmitButton pendingLabel="Saving…">Save changes</SubmitButton>
             <Link href="/admin/bundles" className="btn btn-ghost">
               Cancel
             </Link>

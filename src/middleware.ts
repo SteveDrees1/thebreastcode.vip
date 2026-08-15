@@ -12,7 +12,30 @@ import { NextResponse, type NextRequest } from "next/server";
  * streaming and there is no nonce hook for it; styles are a far weaker vector
  * than scripts, so this is the accepted trade-off rather than an oversight.
  */
+/** Auth.js session cookie, secure-prefixed when served over HTTPS. */
+const SESSION_COOKIES = ["authjs.session-token", "__Secure-authjs.session-token"];
+
 export function middleware(request: NextRequest) {
+  /*
+   * Answer /admin with a real 404 when the caller has no session at all.
+   *
+   * The pages already refuse — an unauthorised request renders the 404 body
+   * with no console chrome and no data. But `notFound()` cannot set the status
+   * once the response has begun streaming, so those refusals go out as 200,
+   * and a prober could tell /admin apart from a nonsense URL by status alone.
+   *
+   * Middleware runs before any of that, so it can answer properly. It only
+   * checks for the presence of a session cookie — never validity, which needs
+   * the database and does not belong on this path. Signed-in non-admins still
+   * fall through to the page's own check, which is the authoritative one.
+   */
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    const hasSession = SESSION_COOKIES.some((name) => request.cookies.has(name));
+    if (!hasSession) {
+      return new NextResponse(null, { status: 404 });
+    }
+  }
+
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV !== "production";
 

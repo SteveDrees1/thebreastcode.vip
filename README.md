@@ -1,21 +1,127 @@
-# thebreastcode.vip
+# Datum Press
 
-An online catalog for selling PDF guides. Products can be bought individually,
-grouped into discounted bundles, read through an all-access subscription, or
-given away with promo codes and referral rewards.
+**A storefront for selling PDFs.** Upload a PDF, price it, publish it — customers
+buy it and get a signed download link that expires in minutes. Sells individual
+files, discounted bundles, an all-access subscription, promo-code giveaways and
+referral rewards, all from one entitlement model.
+
+Built for [thebreastcode.vip](https://thebreastcode.vip), which publishes
+print-ready reference plate sets for the workshop. The brand name lives in one
+file — see [BRAND.md](BRAND.md).
+
+```
+PDF ──▶ import:product ──▶ make:cover ──▶ price & publish ──▶ customer buys
+                                          (console)            ──▶ signed link
+```
+
+---
+
+## What it does
+
+| | |
+| --- | --- |
+| **Sell** | One-off files, multi-file bundles, or an all-access subscription — Stripe Checkout with automatic VAT/sales tax |
+| **Deliver** | PDFs live in a private bucket; downloads are short-lived signed URLs minted only after an entitlement check, with a hashed-IP audit trail |
+| **Give away** | Promo codes granting a file, a bundle, or the whole catalog; referral rewards after N sign-ups |
+| **Manage** | A console for prices, publishing, bundles, promo codes and customers — no SQL required |
+| **Watch** | Every change recorded with before/after values, from the console *and* the command line |
+
+Two roles: `is_admin` (read/write) and `can_audit` (read-only — sees everything,
+changes nothing).
+
+## Why it is built this way
+
+**One entitlement model.** Purchases, bundles, promos, referral rewards and
+manual comps all write rows to `entitlements`, and one `hasAccess()` guards the
+download path. Adding a new way to give something away never touches delivery.
+
+The single deliberate exception is subscriptions, which are resolved *live*
+against `products.includedInSubscription` rather than materialised as rows — so
+a file published tomorrow is readable by today's subscribers, and access ends
+the moment a plan lapses.
+
+**Nothing private reaches the browser.** Storefront queries select through an
+explicit column list, so `fileKey` — the private object key — is never in the
+object at all. A `satisfies` clause makes re-adding it a compile error.
+
+**Authorisation is re-checked per request, in the database.** A server action is
+its own POST endpoint and does not inherit a layout's protection, so every
+mutation authorises independently rather than trusting the session cookie.
+
+## Quick start
+
+```bash
+npm install
+cp .env.example .env.local     # then fill it in
+npm run db:generate && npm run db:migrate
+npm run db:seed                # optional demo catalog
+npm run dev
+```
+
+Then make yourself an admin and open `/admin`:
+
+```sql
+UPDATE users SET is_admin = true WHERE email = 'you@example.com';
+```
+
+### Publishing your first PDF
+
+```bash
+npm run import:product -- --pdf ./Guide.pdf --slug my-guide \
+  --title "My Guide" --price 1900 --publish
+npm run make:cover -- --pdf ./Guide.pdf --slug my-guide --local
+```
+
+`--local` writes the cover to `public/covers/` so you need no public bucket at
+all. Full options in [Publishing a PDF](#publishing-a-pdf).
+
+## Checks
+
+```bash
+npm run typecheck
+npm run lint
+npm run verify:entitlements   # 16 checks — scratch database only
+npm run verify:exposure       # asserts no private column reaches the storefront
+npm run build
+```
+
+`verify:entitlements` exercises purchase, expiry, subscription lapse, promo
+caps, webhook-replay idempotency and refund revocation against a real database.
+`verify:exposure` includes a control assertion that an *unprojected* row still
+contains `fileKey`, so it cannot pass by testing nothing.
 
 ## Stack
 
-| Layer      | Choice                              | Why |
-| ---------- | ----------------------------------- | --- |
-| Framework  | Next.js 15 (App Router) + React 19  | Server components keep catalog pages indexable; one deploy target for pages, API routes, and webhooks |
-| Language   | TypeScript                          | Types run from the database schema through to the UI |
-| Database   | Postgres (Neon)                     | Partial indexes and `ON CONFLICT` do the heavy lifting for idempotent grants |
-| ORM        | Drizzle                             | SQL-shaped, generates real migrations, no query-engine binary |
-| Payments   | Stripe Checkout + Stripe Tax        | Hosted checkout (PCI stays with Stripe), subscriptions, automatic VAT/sales tax |
-| Auth       | Auth.js v5, email magic link        | No passwords to leak; a verified email is what receipts and referrals need anyway |
-| Files      | S3-compatible private bucket (R2)   | PDFs never become public URLs — access is a presigned link minted per download |
-| Styling    | Tailwind v4                         | Theme tokens in CSS, no config file |
+| Layer | Choice | Why |
+| ----- | ------ | --- |
+| Framework | Next.js 15 App Router, React 19 | Server components keep catalog pages indexable; one deploy target for pages, API routes and webhooks |
+| Language | TypeScript | Types run from the database schema through to the UI |
+| Database | Postgres (Neon) | Partial indexes and `ON CONFLICT` do the work for idempotent grants |
+| ORM | Drizzle | SQL-shaped, real migrations, no query-engine binary |
+| Payments | Stripe Checkout + Stripe Tax | Hosted checkout, subscriptions, automatic tax |
+| Auth | Auth.js v5, email magic link | No passwords to leak; a verified email is what receipts and referrals need |
+| Files | S3-compatible private bucket (R2) | PDFs never become public URLs |
+| Styling | Tailwind v4 | Theme tokens in CSS, no config file |
+
+## Repository map
+
+```
+src/
+├── app/              routes — storefront, /admin console, API, OG images
+├── lib/
+│   ├── entitlements  the only module that answers "may this user read this?"
+│   ├── catalog       cached reads + the public-column projection
+│   ├── brand         name, tagline, palette — one edit renames everything
+│   ├── admin         requireConsole / requireAdmin / getAdmin
+│   ├── audit         shared by the console and the CLI scripts
+│   └── seo           JSON-LD builders and safe serialisation
+├── db/               Drizzle schema, client, seed
+└── components/
+scripts/              import:product, make:cover, verify:*
+BRAND.md              name, voice, style guide, marketing
+```
+
+---
 
 ## How access works
 
@@ -36,26 +142,6 @@ never touches the download path.
 
 Grants are idempotent on `(userId, productId, source, sourceRef)`, which is what
 makes Stripe webhook replays safe — a duplicate delivery writes nothing.
-
-## Getting started
-
-```bash
-npm install
-cp .env.example .env.local     # then fill it in
-npm run db:generate            # build migrations from the schema
-npm run db:migrate             # apply them
-npm run db:seed                # optional demo catalog
-npm run dev
-```
-
-### Verifying the rules
-
-```bash
-npm run verify:entitlements    # scratch database only — it creates and deletes users
-```
-
-This exercises purchases, expiry, subscription lapse, promo caps, webhook-replay
-idempotency, and refund revocation against a real database.
 
 ## Stripe setup
 
@@ -186,6 +272,26 @@ entrance animation is **transform-only on purpose** — an opacity fade looks
 better in a demo but leaves content invisible until scrolled into view, which
 breaks printing, deep links, and any browser that resolves the scroll timeline
 differently. `prefers-reduced-motion` disables all of it.
+
+## Interface conventions
+
+- **The header wraps to two rows on phones** rather than hiding links behind a
+  menu button. The nav is rendered once and CSS reorders it, so there is no
+  duplicated markup for screen readers and no JS to open it. (It previously used
+  `hidden sm:flex`, which left phone visitors no way to reach the catalog at all.)
+- **`not-found.tsx`** — a 404 with a hammer, a thumb and a nail that survived.
+  It is also what an unauthorised visitor sees at `/admin`, so it never hints
+  that anything is hidden.
+- **`error.tsx`** — shows the error *digest* rather than the message. Production
+  Next withholds the real error, and the digest is the handle that ties what the
+  customer saw to the server log. Quoting eight characters beats "something went
+  wrong".
+- **`loading.tsx`** — a skeleton in the shape of the page. Every route renders
+  per request, so a cold start would otherwise leave the previous page on screen.
+- **`SubmitButton`** — server-action forms give no feedback while posting, so a
+  customer redeeming a code clicks twice. For a promo redemption that burns a
+  rate-limit slot and can race; `useFormStatus` disables the button instead.
+- **Touch targets** are at least 24px tall in the header, per WCAG 2.2 (2.5.8).
 
 ## Performance
 
@@ -413,6 +519,21 @@ production database as part of your release step.
 
 `AUTH_URL` and `NEXT_PUBLIC_SITE_URL` must match the public origin, or magic
 links and Stripe redirects will point at the wrong host.
+
+## Known limitations
+
+- **`/admin` answers 200 for a signed-in non-admin**, though the body is the 404
+  page with no console chrome and no data. `notFound()` cannot set a status once
+  the response has begun streaming. Anonymous probes are answered with a real
+  404 in middleware, which covers the case that matters; `/admin` is listed in
+  robots.txt anyway, so its existence was never secret.
+- **Rate limiting counts per server instance** — exact on one VPS, per warm
+  lambda on serverless. Every caller goes through one `hit()` function if you
+  need an exact global limit (Upstash, Vercel KV).
+- **`style-src` still needs `'unsafe-inline'`.** Next injects inline `<style>`
+  while streaming and offers no nonce hook for it.
+- **The S3 upload path is the one thing never exercised end to end** here, for
+  want of bucket credentials. `--skip-upload` and `--local` work around it.
 
 ## Not built yet
 

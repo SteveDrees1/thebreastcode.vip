@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { auth, signOut } from "@/auth";
+import { brand } from "@/lib/brand";
 import { env } from "@/lib/env";
 import { organizationJsonLd, safeJsonLd, webSiteJsonLd } from "@/lib/seo";
 import "./globals.css";
@@ -29,15 +30,14 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(env.siteUrl),
   title: {
-    default: "The Breast Code — reference plate sets",
-    template: "%s · The Breast Code",
+    default: `${brand.name} — reference plate sets`,
+    template: `%s · ${brand.name}`,
   },
-  description:
-    "Print-ready reference plate sets. Dimensioned diagrams, spec tables and working notes — buy a set, save with a series bundle, or read everything with all-access.",
-  applicationName: "The Breast Code",
+  description: brand.description,
+  applicationName: brand.name,
   openGraph: {
     type: "website",
-    siteName: "The Breast Code",
+    siteName: brand.name,
     locale: "en_US",
   },
   twitter: { card: "summary_large_image" },
@@ -79,50 +79,61 @@ export default async function RootLayout({
         </a>
 
         <header className="sticky top-0 z-50 border-b border-line bg-void/80 backdrop-blur-md">
+          {/*
+            Wraps to two rows on phones rather than hiding the links behind a
+            menu button: the nav is rendered once and CSS reorders it, so there
+            is no duplicated markup for screen readers and no JS to open it.
+            Previously these links were `hidden sm:flex`, which left phone
+            visitors with no way to reach the catalog from the header at all.
+          */}
           <nav
             aria-label="Primary"
-            className="mx-auto flex max-w-6xl items-center gap-7 px-5 py-3.5"
+            className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-7 gap-y-0 px-5 py-3"
           >
-            <Link href="/" className="group flex items-center gap-2.5">
+            <Link href="/" className="order-1 flex min-h-6 items-center gap-2.5">
               <span
                 aria-hidden
                 className="inline-block size-2 rounded-full bg-cyan live-dot"
               />
               <span className="font-display text-[0.95rem] font-bold tracking-tight">
-                THE BREAST CODE
+                {brand.wordmark}
               </span>
             </Link>
 
-            <ul className="hidden items-center gap-6 text-sm text-muted sm:flex">
-              {NAV.map((item) => (
+            <ul className="order-3 flex w-full items-center gap-6 border-t border-line py-2.5 text-sm text-muted sm:order-2 sm:w-auto sm:border-0 sm:py-0">
+              {(session?.user
+                ? [...NAV, { href: "/account", label: "Account" }]
+                : NAV
+              ).map((item) => (
                 <li key={item.href}>
-                  <Link href={item.href} className="transition hover:text-text">
+                  <Link
+                    href={item.href}
+                    className="inline-flex min-h-6 items-center transition hover:text-text"
+                  >
                     {item.label}
                   </Link>
                 </li>
               ))}
             </ul>
 
-            <div className="ml-auto flex items-center gap-4 text-sm">
+            <div className="order-2 ml-auto flex items-center gap-4 py-0.5 text-sm sm:order-3">
               {session?.user ? (
                 <>
                   {session.user.isAdmin || session.user.canAudit ? (
                     <Link
                       href="/admin"
-                      className="label label-copper transition hover:text-text"
+                      className="label label-copper inline-flex min-h-6 items-center transition hover:text-text"
                     >
                       Console
                     </Link>
                   ) : null}
-                  <Link href="/library" className="text-muted transition hover:text-text">
+                  <Link
+                    href="/library"
+                    className="inline-flex min-h-6 items-center text-muted transition hover:text-text"
+                  >
                     Library
                   </Link>
-                  <Link
-                    href="/account"
-                    className="hidden text-muted transition hover:text-text sm:inline"
-                  >
-                    Account
-                  </Link>
+
                   <form
                     action={async () => {
                       "use server";
@@ -131,7 +142,7 @@ export default async function RootLayout({
                   >
                     <button
                       type="submit"
-                      className="text-muted transition hover:text-text"
+                      className="inline-flex min-h-6 items-center text-muted transition hover:text-text"
                     >
                       Sign out
                     </button>
@@ -154,9 +165,9 @@ export default async function RootLayout({
           <div className="mx-auto max-w-6xl px-5 py-10">
             <div className="flex flex-wrap items-start justify-between gap-8">
               <div>
-                <p className="label label-copper">Original Reference Series</p>
+                <p className="label label-copper">{brand.seriesName}</p>
                 <p className="mt-2 max-w-xs text-sm text-muted">
-                  Print-ready plate sets for the shop. Designed to laminate and use.
+                  {brand.tagline} Designed to laminate and use.
                 </p>
               </div>
               <nav aria-label="Footer" className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
@@ -181,7 +192,9 @@ export default async function RootLayout({
 
             <hr className="rule my-8" />
 
-            <p className="label">© {new Date().getFullYear()} The Breast Code</p>
+            <p className="label">
+              © {new Date().getFullYear()} {brand.name}
+            </p>
           </div>
         </footer>
       </body>

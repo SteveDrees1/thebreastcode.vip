@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { brand, palette } from "@/lib/brand";
 
 /**
  * Default social card.
@@ -10,14 +11,11 @@ import { ImageResponse } from "next/og";
  * Only system-safe layout is used — no external fonts to fetch, which keeps
  * this fast and means it cannot fail at build time on a locked-down network.
  */
-export const alt = "The Breast Code — print-ready reference plate sets";
+export const alt = `${brand.name} — ${brand.description}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const COPPER = "#e0913f";
-const INK = "#07080a";
-const TEXT = "#e9ecf1";
-const MUTED = "#98a1b1";
+const { copper: COPPER, ink: INK, text: TEXT, muted: MUTED } = palette;
 
 /** The trim marks that appear on every printed plate. */
 function RegistrationMark({
@@ -63,7 +61,7 @@ export default function Image() {
               textTransform: "uppercase",
             }}
           >
-            Original Reference Series
+            {brand.seriesName}
           </div>
 
           <div
@@ -109,10 +107,10 @@ export default function Image() {
             textTransform: "uppercase",
           }}
         >
-          <span>Format Letter</span>
-          <span>Scale N.T.S.</span>
-          <span>Full bleed</span>
-          <span style={{ marginLeft: "auto", color: TEXT }}>thebreastcode.vip</span>
+          <span>Format {brand.spec.format}</span>
+          <span>Scale {brand.spec.scale}</span>
+          <span>{brand.spec.print}</span>
+          <span style={{ marginLeft: "auto", color: TEXT }}>{brand.domain}</span>
         </div>
       </div>
     ),

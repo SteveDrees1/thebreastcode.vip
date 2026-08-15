@@ -37,7 +37,17 @@ export interface ConsoleUser {
   canAudit: boolean;
 }
 
-async function loadConsoleUser(): Promise<ConsoleUser | null> {
+/**
+ * Non-throwing console lookup, for the layout.
+ *
+ * The layout must NOT call `notFound()`: in Next 15 a `notFound()` thrown from
+ * a layout renders the not-found boundary but leaves the status at 200, so
+ * /admin would answer 200 while /nonsense answers 404 — which is exactly the
+ * difference a prober looks for. Every admin page gates itself, and a
+ * `notFound()` from a page sets the status correctly, so the layout only needs
+ * to know whether to draw the console chrome.
+ */
+export async function getConsoleUser(): Promise<ConsoleUser | null> {
   const session = await auth();
   if (!session?.user?.id) return null;
 
@@ -61,14 +71,14 @@ async function loadConsoleUser(): Promise<ConsoleUser | null> {
 
 /** Page gate: admin or auditor. */
 export async function requireConsole(): Promise<ConsoleUser> {
-  const user = await loadConsoleUser();
+  const user = await getConsoleUser();
   if (!user) notFound();
   return user;
 }
 
 /** Page gate: admin only. */
 export async function requireAdmin(): Promise<ConsoleUser> {
-  const user = await loadConsoleUser();
+  const user = await getConsoleUser();
   if (!user?.isAdmin) notFound();
   return user;
 }
@@ -82,7 +92,7 @@ export async function requireAdmin(): Promise<ConsoleUser> {
  * server action id must be refused exactly like a stranger.
  */
 export async function getAdmin(): Promise<ConsoleUser | null> {
-  const user = await loadConsoleUser();
+  const user = await getConsoleUser();
   return user?.isAdmin ? user : null;
 }
 

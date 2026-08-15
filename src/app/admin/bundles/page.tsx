@@ -5,6 +5,7 @@ import { bundleItems, bundles } from "@/db/schema";
 import { requireConsole } from "@/lib/admin";
 import { formatPrice } from "@/lib/stripe";
 import { createBundleAction } from "../actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -142,9 +143,7 @@ export default async function AdminBundlesPage({
           </p>
 
           <div>
-            <button type="submit" className="btn btn-primary">
-              Create bundle
-            </button>
+            <SubmitButton pendingLabel="Creating…">Create bundle</SubmitButton>
           </div>
         </form>
       </section>

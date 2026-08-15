@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { products } from "@/db/schema";
 import { centsToInput, requireConsole } from "@/lib/admin";
 import { saveProductAction } from "../../actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -176,9 +177,7 @@ export default async function AdminProductPage({
 
         {user.isAdmin ? (
           <div className="flex flex-wrap gap-3">
-            <button type="submit" className="btn btn-primary">
-              Save changes
-            </button>
+            <SubmitButton pendingLabel="Saving…">Save changes</SubmitButton>
             <Link href="/admin/products" className="btn btn-ghost">
               Cancel
             </Link>

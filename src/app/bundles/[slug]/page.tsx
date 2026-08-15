@@ -6,6 +6,7 @@ import { ownedProductIds } from "@/lib/entitlements";
 import { getBundleBySlug, getBundleContents } from "@/lib/catalog";
 import { formatPrice } from "@/lib/stripe";
 import { breadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
+import { brand } from "@/lib/brand";
 import { env } from "@/lib/env";
 import { CheckoutButton } from "@/components/checkout-button";
 
@@ -54,7 +55,7 @@ export default async function BundlePage({
     name: bundle.title,
     description: bundle.subtitle ?? bundle.description.slice(0, 300),
     sku: bundle.slug,
-    brand: { "@type": "Brand", name: "The Breast Code" },
+    brand: { "@type": "Brand", name: brand.name },
     offers: {
       "@type": "Offer",
       price: (bundle.priceCents / 100).toFixed(2),

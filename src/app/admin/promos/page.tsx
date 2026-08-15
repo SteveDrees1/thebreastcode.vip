@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { bundles, products, promoCodes } from "@/db/schema";
 import { requireConsole } from "@/lib/admin";
 import { createPromoAction, togglePromoAction } from "../actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -185,9 +186,7 @@ export default async function AdminPromosPage({
           </div>
 
           <div>
-            <button type="submit" className="btn btn-primary">
-              Create code
-            </button>
+            <SubmitButton pendingLabel="Creating…">Create code</SubmitButton>
           </div>
         </form>
       </section>
