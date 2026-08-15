@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { ownedProductIds } from "@/lib/entitlements";
 import { getPublishedProducts } from "@/lib/catalog";
 import { ProductCard } from "@/components/product-card";
+import { itemListJsonLd, safeJsonLd } from "@/lib/seo";
 
 // Rendered per request: the header and buy state depend on the session, so
 // this route reads cookies and cannot be prerendered. Data caching lives in
@@ -24,6 +25,11 @@ export default async function CatalogPage() {
 
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(itemListJsonLd(all)) }}
+      />
+
       <header>
         <p className="label label-copper">Index</p>
         <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">Catalog</h1>

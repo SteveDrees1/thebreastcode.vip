@@ -201,6 +201,53 @@ differently. `prefers-reduced-motion` disables all of it.
 Measured on the catalog page against a local build: TTFB 20 ms, DOMContentLoaded
 88 ms, 106 KB of JS, 182 DOM nodes, no console errors.
 
+## SEO and discoverability
+
+Everything below is generated from the database, so it cannot drift from the
+catalog the way hand-maintained files do.
+
+| Route | What it is |
+| ----- | ---------- |
+| `/sitemap.xml` | Every public URL with `lastModified`; private paths excluded |
+| `/robots.txt` | Allows the public catalog, blocks customer and machinery paths |
+| `/llms.txt` | The [llmstxt.org](https://llmstxt.org) convention — a curated map for language models, with live titles, prices and links |
+| `/opengraph-image` | Generated 1200×630 social card for the site |
+| `/catalog/[slug]/opengraph-image` | Per-set card with its title, doc number and plate count |
+
+**Social cards were the biggest gap** — before this, every shared link rendered
+as a bare URL. Cards are drawn with `next/og` in the same vocabulary as the
+plates, using no external fonts so they cannot fail on a locked-down network.
+Product pages deliberately do **not** set `openGraph.images`: doing so would
+override the generated card, and the cover is a 3:4 portrait that crops badly to
+the 1.91:1 social ratio.
+
+**Structured data**, all escaped through `safeJsonLd` (see the XSS note below):
+
+- `Organization` + `WebSite` site-wide, emitted once in the layout
+- `Product` + `Offer` on every set and bundle — price and availability in results
+- `BreadcrumbList` on set and bundle pages — results show a trail, not a bare URL
+- `ItemList` on the catalog
+
+Canonical URLs are set on every public page; customer pages carry
+`robots: { index: false }` and `/admin` additionally sends `X-Robots-Tag`.
+
+### AI crawlers
+
+`robots.txt` lists assistant crawlers explicitly (GPTBot, ClaudeBot,
+PerplexityBot, Google-Extended, CCBot and others) and **allows** them the same
+public catalog as anyone else. For a store like this, being answerable inside an
+assistant is discovery, not leakage: the PDFs are not public, so the most a model
+can reach is a sales page. Listing them by name makes opting out a one-line
+change later rather than a research project.
+
+### Caching note
+
+Catalog reads go through `unstable_cache` with a one-hour TTL, and the social
+cards read the same cache. An edit made **through the console** calls
+`revalidateTag`, so the page and its card both refresh immediately — verified.
+An edit made with **raw SQL** bypasses that and waits out the TTL, which is
+worth knowing if you change a title in psql and wonder why the card is stale.
+
 ## Accessibility
 
 Skip link as the first tab stop, one `h1` per page with no skipped levels,

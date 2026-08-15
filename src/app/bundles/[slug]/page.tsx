@@ -5,6 +5,8 @@ import { auth } from "@/auth";
 import { ownedProductIds } from "@/lib/entitlements";
 import { getBundleBySlug, getBundleContents } from "@/lib/catalog";
 import { formatPrice } from "@/lib/stripe";
+import { breadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
+import { env } from "@/lib/env";
 import { CheckoutButton } from "@/components/checkout-button";
 
 // Rendered per request: the header and buy state depend on the session, so
@@ -46,8 +48,40 @@ export default async function BundlePage({
   const fullPrice = contents.reduce((sum, p) => sum + p.priceCents, 0);
   const saving = fullPrice - bundle.priceCents;
 
+  const bundleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: bundle.title,
+    description: bundle.subtitle ?? bundle.description.slice(0, 300),
+    sku: bundle.slug,
+    brand: { "@type": "Brand", name: "The Breast Code" },
+    offers: {
+      "@type": "Offer",
+      price: (bundle.priceCents / 100).toFixed(2),
+      priceCurrency: bundle.currency.toUpperCase(),
+      availability: "https://schema.org/InStock",
+      url: `${env.siteUrl}/bundles/${bundle.slug}`,
+    },
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(bundleJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLd(
+            breadcrumbJsonLd([
+              { name: "Bundles", path: "/bundles" },
+              { name: bundle.title, path: `/bundles/${bundle.slug}` },
+            ]),
+          ),
+        }}
+      />
+
       <nav aria-label="Breadcrumb" className="mb-8">
         <Link href="/bundles" className="label transition hover:text-copper">
           ← Bundles

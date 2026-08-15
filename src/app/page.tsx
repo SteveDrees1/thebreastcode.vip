@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { count, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -10,6 +11,10 @@ import { ProductCard } from "@/components/product-card";
 // Rendered per request: the header and buy state depend on the session, so
 // this route reads cookies and cannot be prerendered. Data caching lives in
 // lib/catalog.ts, which keeps the database out of the hot path.
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default async function HomePage() {
   const session = await auth();

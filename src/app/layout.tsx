@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { auth, signOut } from "@/auth";
 import { env } from "@/lib/env";
+import { organizationJsonLd, safeJsonLd, webSiteJsonLd } from "@/lib/seo";
 import "./globals.css";
 
 // Self-hosted at build time: no third-party request, no layout shift, and the
@@ -65,6 +66,14 @@ export default async function RootLayout({
       className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
     >
       <body className="flex min-h-screen flex-col">
+        {/* Publisher and site identity, emitted once rather than per page. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLd([organizationJsonLd(), webSiteJsonLd()]),
+          }}
+        />
+
         <a href="#main" className="skip-link">
           Skip to content
         </a>

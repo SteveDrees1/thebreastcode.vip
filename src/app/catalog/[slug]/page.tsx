@@ -6,6 +6,7 @@ import { resolveAccess } from "@/lib/entitlements";
 import { getProductBySlug } from "@/lib/catalog";
 import { env } from "@/lib/env";
 import { formatPrice } from "@/lib/stripe";
+import { breadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { CheckoutButton } from "@/components/checkout-button";
 
 /**
@@ -22,27 +23,6 @@ import { CheckoutButton } from "@/components/checkout-button";
  * so crawlers see complete markup.
  */
 export const dynamic = "force-dynamic";
-
-/**
- * Serialise structured data for injection into a <script> tag.
- *
- * `JSON.stringify` alone is NOT safe here. It escapes quotes but leaves `<`
- * untouched, so a product title containing `</script>` closes the tag early and
- * everything after it is parsed as HTML — arbitrary script execution from a
- * field an admin (or the importer's `--title`) can set.
- *
- * Escaping `<` as `<` keeps the JSON semantically identical while making
- * it impossible to terminate the element. `&` and line separators are escaped
- * for the same class of reason.
- */
-function safeJsonLd(data: unknown): string {
-  return JSON.stringify(data)
-    .replace(/</g, "\\u003c")
-    .replace(/>/g, "\\u003e")
-    .replace(/&/g, "\\u0026")
-    .replace(/\u2028/g, "\\u2028")
-    .replace(/\u2029/g, "\\u2029");
-}
 
 export async function generateMetadata({
   params,
@@ -63,7 +43,9 @@ export async function generateMetadata({
       title: product.title,
       description,
       url: `${env.siteUrl}/catalog/${product.slug}`,
-      images: product.coverImageUrl ? [product.coverImageUrl] : undefined,
+      // No `images` here on purpose: setting it would override the generated
+      // card in opengraph-image.tsx. The cover is a 3:4 portrait and crops
+      // badly to the 1.91:1 social ratio, so the drawn card wins.
     },
   };
 }
@@ -103,6 +85,17 @@ export default async function ProductPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLd(
+            breadcrumbJsonLd([
+              { name: "Catalog", path: "/catalog" },
+              { name: product.title, path: `/catalog/${product.slug}` },
+            ]),
+          ),
+        }}
       />
 
       <nav aria-label="Breadcrumb" className="mb-8">
