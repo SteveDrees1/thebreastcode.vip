@@ -1,12 +1,14 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { and, eq, not, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { bundleItems, bundles, products, promoCodes } from "@/db/schema";
-import { getAdmin, inputToCents } from "@/lib/admin";
+import { adminAuditLog, bundleItems, bundles, products, promoCodes } from "@/db/schema";
+import { getAdmin, inputToCents, type AdminUser } from "@/lib/admin";
 import { CATALOG_TAG } from "@/lib/catalog";
 import { hit } from "@/lib/rate-limit";
 
@@ -37,6 +39,61 @@ function refreshCatalog() {
   revalidatePath("/", "layout");
 }
 
+type Changes = Record<string, { from: unknown; to: unknown }>;
+
+/** Field-level diff, keeping only what actually moved. */
+function diff<T extends Record<string, unknown>>(before: T, after: T): Changes {
+  const changes: Changes = {};
+  for (const key of Object.keys(after)) {
+    if (before[key] !== after[key]) {
+      changes[key] = { from: before[key] ?? null, to: after[key] ?? null };
+    }
+  }
+  return changes;
+}
+
+/**
+ * Write an audit entry.
+ *
+ * Never allowed to break the operation it records: a logging failure must not
+ * roll back a price change the operator believes succeeded. It is logged to the
+ * server instead, where it is visible without being destructive.
+ */
+async function record(
+  admin: AdminUser,
+  entry: {
+    action: string;
+    entityType: string;
+    entityId?: string | null;
+    summary: string;
+    changes?: Changes;
+  },
+) {
+  try {
+    const forwarded = (await headers()).get("x-forwarded-for");
+    const ip = forwarded?.split(",")[0]?.trim();
+
+    await db.insert(adminAuditLog).values({
+      actorId: admin.id,
+      actorEmail: admin.email,
+      action: entry.action,
+      entityType: entry.entityType,
+      entityId: entry.entityId ?? null,
+      summary: entry.summary,
+      changes:
+        entry.changes && Object.keys(entry.changes).length > 0 ? entry.changes : null,
+      ipHash: ip
+        ? createHash("sha256")
+            .update(`${ip}:${process.env.AUTH_SECRET ?? ""}`)
+            .digest("hex")
+            .slice(0, 32)
+        : null,
+    });
+  } catch (error) {
+    console.error("[audit] failed to record admin action", entry.action, error);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Products
 // ---------------------------------------------------------------------------
@@ -53,7 +110,7 @@ const productSchema = z.object({
 });
 
 export async function saveProductAction(formData: FormData) {
-  await authorize("product");
+  const admin = await authorize("product");
 
   const parsed = productSchema.safeParse({
     id: String(formData.get("id") ?? ""),
@@ -78,8 +135,10 @@ export async function saveProductAction(formData: FormData) {
     );
   }
 
+  // Read the full row first: the audit entry is only useful if it can say what
+  // the values were before.
   const [current] = await db
-    .select({ status: products.status, publishedAt: products.publishedAt })
+    .select()
     .from(products)
     .where(eq(products.id, parsed.data.id))
     .limit(1);
@@ -106,16 +165,45 @@ export async function saveProductAction(formData: FormData) {
     })
     .where(eq(products.id, parsed.data.id));
 
+  await record(admin, {
+    action: "product.update",
+    entityType: "product",
+    entityId: parsed.data.id,
+    summary: `Edited “${parsed.data.title}”`,
+    changes: diff(
+      {
+        title: current.title,
+        subtitle: current.subtitle,
+        priceCents: current.priceCents,
+        status: current.status,
+        featured: current.featured,
+        includedInSubscription: current.includedInSubscription,
+      },
+      {
+        title: parsed.data.title,
+        subtitle: parsed.data.subtitle || null,
+        priceCents,
+        status: parsed.data.status,
+        featured: parsed.data.featured,
+        includedInSubscription: parsed.data.includedInSubscription,
+      },
+    ),
+  });
+
   refreshCatalog();
   redirect(`/admin/products/${parsed.data.id}?saved=1`);
 }
 
 export async function toggleProductStatusAction(formData: FormData) {
-  await authorize("product");
+  const admin = await authorize("product");
   const id = String(formData.get("id") ?? "");
 
   const [current] = await db
-    .select({ status: products.status, publishedAt: products.publishedAt })
+    .select({
+      title: products.title,
+      status: products.status,
+      publishedAt: products.publishedAt,
+    })
     .from(products)
     .where(eq(products.id, id))
     .limit(1);
@@ -133,18 +221,39 @@ export async function toggleProductStatusAction(formData: FormData) {
     })
     .where(eq(products.id, id));
 
+  await record(admin, {
+    action: next === "published" ? "product.publish" : "product.unpublish",
+    entityType: "product",
+    entityId: id,
+    summary: `${next === "published" ? "Published" : "Unpublished"} “${current.title}”`,
+    changes: { status: { from: current.status, to: next } },
+  });
+
   refreshCatalog();
   revalidatePath("/admin/products");
 }
 
 export async function toggleProductFeaturedAction(formData: FormData) {
-  await authorize("product");
+  const admin = await authorize("product");
   const id = String(formData.get("id") ?? "");
 
-  await db
+  // `returning` gives the post-update value in one round trip, so the log
+  // records what the row actually became rather than what we assumed.
+  const [updated] = await db
     .update(products)
     .set({ featured: not(products.featured), updatedAt: new Date() })
-    .where(eq(products.id, id));
+    .where(eq(products.id, id))
+    .returning({ title: products.title, featured: products.featured });
+
+  if (!updated) return;
+
+  await record(admin, {
+    action: updated.featured ? "product.feature" : "product.unfeature",
+    entityType: "product",
+    entityId: id,
+    summary: `${updated.featured ? "Featured" : "Unfeatured"} “${updated.title}”`,
+    changes: { featured: { from: !updated.featured, to: updated.featured } },
+  });
 
   refreshCatalog();
   revalidatePath("/admin/products");
@@ -169,7 +278,7 @@ const bundleSchema = z.object({
 });
 
 export async function createBundleAction(formData: FormData) {
-  await authorize("bundle");
+  const admin = await authorize("bundle");
 
   const parsed = bundleSchema.safeParse({
     title: String(formData.get("title") ?? ""),
@@ -211,12 +320,23 @@ export async function createBundleAction(formData: FormData) {
     })
     .returning({ id: bundles.id });
 
+  await record(admin, {
+    action: "bundle.create",
+    entityType: "bundle",
+    entityId: created.id,
+    summary: `Created bundle “${parsed.data.title}”`,
+    changes: {
+      priceCents: { from: null, to: priceCents },
+      status: { from: null, to: parsed.data.status },
+    },
+  });
+
   refreshCatalog();
   redirect(`/admin/bundles/${created.id}?created=1`);
 }
 
 export async function saveBundleAction(formData: FormData) {
-  await authorize("bundle");
+  const admin = await authorize("bundle");
   const id = String(formData.get("id") ?? "");
 
   const parsed = bundleSchema.safeParse({
@@ -248,10 +368,11 @@ export async function saveBundleAction(formData: FormData) {
   }
 
   const [current] = await db
-    .select({ publishedAt: bundles.publishedAt })
+    .select()
     .from(bundles)
     .where(eq(bundles.id, id))
     .limit(1);
+  if (!current) redirect("/admin/bundles?error=Bundle+not+found");
 
   await db
     .update(bundles)
@@ -268,12 +389,33 @@ export async function saveBundleAction(formData: FormData) {
     })
     .where(eq(bundles.id, id));
 
+  await record(admin, {
+    action: "bundle.update",
+    entityType: "bundle",
+    entityId: id,
+    summary: `Edited bundle “${parsed.data.title}”`,
+    changes: diff(
+      {
+        title: current.title,
+        slug: current.slug,
+        priceCents: current.priceCents,
+        status: current.status,
+      },
+      {
+        title: parsed.data.title,
+        slug: parsed.data.slug,
+        priceCents,
+        status: parsed.data.status,
+      },
+    ),
+  });
+
   refreshCatalog();
   redirect(`/admin/bundles/${id}?saved=1`);
 }
 
 export async function addBundleItemAction(formData: FormData) {
-  await authorize("bundle");
+  const admin = await authorize("bundle");
   const bundleId = String(formData.get("bundleId") ?? "");
   const productId = String(formData.get("productId") ?? "");
   if (!bundleId || !productId) return;
@@ -284,25 +426,56 @@ export async function addBundleItemAction(formData: FormData) {
     .from(bundleItems)
     .where(eq(bundleItems.bundleId, bundleId));
 
-  await db
+  const added = await db
     .insert(bundleItems)
     .values({ bundleId, productId, position: Number(nextPosition) })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ productId: bundleItems.productId });
+
+  // A no-op conflict is not a change; do not clutter the log with one.
+  if (added.length > 0) {
+    const [product] = await db
+      .select({ title: products.title })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+
+    await record(admin, {
+      action: "bundle.item.add",
+      entityType: "bundle",
+      entityId: bundleId,
+      summary: `Added “${product?.title ?? productId}” to a bundle`,
+    });
+  }
 
   refreshCatalog();
   revalidatePath(`/admin/bundles/${bundleId}`);
 }
 
 export async function removeBundleItemAction(formData: FormData) {
-  await authorize("bundle");
+  const admin = await authorize("bundle");
   const bundleId = String(formData.get("bundleId") ?? "");
   const productId = String(formData.get("productId") ?? "");
 
-  await db
+  const removed = await db
     .delete(bundleItems)
-    .where(
-      and(eq(bundleItems.bundleId, bundleId), eq(bundleItems.productId, productId)),
-    );
+    .where(and(eq(bundleItems.bundleId, bundleId), eq(bundleItems.productId, productId)))
+    .returning({ productId: bundleItems.productId });
+
+  if (removed.length > 0) {
+    const [product] = await db
+      .select({ title: products.title })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+
+    await record(admin, {
+      action: "bundle.item.remove",
+      entityType: "bundle",
+      entityId: bundleId,
+      summary: `Removed “${product?.title ?? productId}” from a bundle`,
+    });
+  }
 
   refreshCatalog();
   revalidatePath(`/admin/bundles/${bundleId}`);
@@ -327,7 +500,7 @@ const promoSchema = z.object({
 });
 
 export async function createPromoAction(formData: FormData) {
-  await authorize("promo");
+  const admin = await authorize("promo");
 
   const parsed = promoSchema.safeParse({
     code: String(formData.get("code") ?? ""),
@@ -367,13 +540,25 @@ export async function createPromoAction(formData: FormData) {
     .limit(1);
   if (clash.length > 0) redirect("/admin/promos?error=That+code+already+exists");
 
-  await db.insert(promoCodes).values({
-    code,
-    kind: parsed.data.kind,
-    productId: parsed.data.kind === "free_product" ? parsed.data.productId : null,
-    bundleId: parsed.data.kind === "free_bundle" ? parsed.data.bundleId : null,
-    maxRedemptions: max,
-    note: parsed.data.note || null,
+  const [createdPromo] = await db
+    .insert(promoCodes)
+    .values({
+      code,
+      kind: parsed.data.kind,
+      productId: parsed.data.kind === "free_product" ? parsed.data.productId : null,
+      bundleId: parsed.data.kind === "free_bundle" ? parsed.data.bundleId : null,
+      maxRedemptions: max,
+      note: parsed.data.note || null,
+    })
+    .returning({ id: promoCodes.id });
+
+  await record(admin, {
+    action: "promo.create",
+    entityType: "promo",
+    entityId: createdPromo.id,
+    // Codes give away product, so who minted one and how many it covers is
+    // exactly the question this log exists to answer.
+    summary: `Created promo ${code} (${parsed.data.kind.replace(/_/g, " ")}, limit ${max ?? "unlimited"})`,
   });
 
   revalidatePath("/admin/promos");
@@ -381,13 +566,24 @@ export async function createPromoAction(formData: FormData) {
 }
 
 export async function togglePromoAction(formData: FormData) {
-  await authorize("promo");
+  const admin = await authorize("promo");
   const id = String(formData.get("id") ?? "");
 
-  await db
+  const [updated] = await db
     .update(promoCodes)
     .set({ active: not(promoCodes.active) })
-    .where(eq(promoCodes.id, id));
+    .where(eq(promoCodes.id, id))
+    .returning({ code: promoCodes.code, active: promoCodes.active });
+
+  if (updated) {
+    await record(admin, {
+      action: updated.active ? "promo.enable" : "promo.disable",
+      entityType: "promo",
+      entityId: id,
+      summary: `${updated.active ? "Enabled" : "Disabled"} promo ${updated.code}`,
+      changes: { active: { from: !updated.active, to: updated.active } },
+    });
+  }
 
   revalidatePath("/admin/promos");
 }

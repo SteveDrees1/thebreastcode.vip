@@ -238,6 +238,25 @@ indistinguishable from a URL that does not exist.
 Every write calls `revalidateTag(CATALOG_TAG)`, so an edit reaches the
 storefront immediately despite the catalog cache.
 
+### Audit log
+
+Every console mutation writes to `admin_audit_log` and appears under
+**Activity** — who did it, what changed, and the before/after for the fields
+worth reconstructing (`price: $19 → $27`).
+
+Two details make it trustworthy rather than decorative:
+
+- The actor's **email is snapshotted** and `actor_id` clears to NULL instead of
+  cascading, so deleting a staff account leaves their history intact. An audit
+  log that disappears along with the account that made the changes is not an
+  audit log. Verified: after deleting the acting admin, all entries survive with
+  the email preserved.
+- Recording is wrapped so a logging failure can never roll back the operation it
+  describes — a price change the operator saw succeed must not be undone because
+  an insert failed. Failures go to the server log instead.
+
+IP addresses are stored hashed, as elsewhere.
+
 ## What the browser is allowed to see
 
 Every response is built from an explicit field list. Nothing is sent because it

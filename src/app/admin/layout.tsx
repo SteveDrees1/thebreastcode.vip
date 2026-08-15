@@ -16,6 +16,7 @@ const NAV = [
   { href: "/admin/products", label: "Sets", key: "01" },
   { href: "/admin/bundles", label: "Bundles", key: "02" },
   { href: "/admin/promos", label: "Promos", key: "03" },
+  { href: "/admin/activity", label: "Activity", key: "04" },
 ];
 
 export default async function AdminLayout({

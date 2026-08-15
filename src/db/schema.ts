@@ -15,6 +15,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -441,6 +442,41 @@ export const downloadLogs = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("download_logs_user_idx").on(t.userId, t.createdAt)],
+);
+
+/**
+ * Who changed what, in the console.
+ *
+ * The actor's email is snapshotted rather than only referenced, and `actorId`
+ * clears to NULL rather than cascading, so deleting a staff account leaves the
+ * record of their changes intact. An audit log that disappears with the account
+ * that made the changes is not an audit log.
+ */
+export const adminAuditLog = pgTable(
+  "admin_audit_log",
+  {
+    id: text("id").primaryKey().$defaultFn(cuid),
+
+    actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
+    /** Snapshot, so the entry survives the account being removed. */
+    actorEmail: text("actor_email").notNull(),
+
+    /** e.g. "product.update", "bundle.create", "promo.disable". */
+    action: text("action").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id"),
+    /** Human-readable summary, shown in the console. */
+    summary: text("summary").notNull().default(""),
+    /** Field-level before/after, for the changes worth reconstructing. */
+    changes: jsonb("changes").$type<Record<string, { from: unknown; to: unknown }>>(),
+
+    ipHash: text("ip_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("admin_audit_log_created_idx").on(t.createdAt),
+    index("admin_audit_log_entity_idx").on(t.entityType, t.entityId),
+  ],
 );
 
 // ---------------------------------------------------------------------------

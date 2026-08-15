@@ -2,6 +2,7 @@ import Link from "next/link";
 import { count, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  adminAuditLog,
   bundles,
   entitlements,
   orders,
@@ -28,6 +29,7 @@ export default async function AdminOverviewPage() {
     [revenue],
     recentOrders,
     topSellers,
+    recentActivity,
   ] = await Promise.all([
     db.select({ value: count() }).from(products).where(eq(products.status, "published")),
     db.select({ value: count() }).from(products).where(eq(products.status, "draft")),
@@ -72,6 +74,16 @@ export default async function AdminOverviewPage() {
       .where(isNull(entitlements.revokedAt))
       .groupBy(products.id, products.title, products.slug)
       .orderBy(desc(count(entitlements.id)))
+      .limit(5),
+    db
+      .select({
+        id: adminAuditLog.id,
+        summary: adminAuditLog.summary,
+        actorEmail: adminAuditLog.actorEmail,
+        createdAt: adminAuditLog.createdAt,
+      })
+      .from(adminAuditLog)
+      .orderBy(desc(adminAuditLog.createdAt))
       .limit(5),
   ]);
 
@@ -170,6 +182,35 @@ export default async function AdminOverviewPage() {
                 >
                   {order.status}
                 </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <div className="flex items-baseline justify-between gap-4">
+          <p className="label label-copper">Recent console activity</p>
+          <Link href="/admin/activity" className="label transition hover:text-copper">
+            All activity →
+          </Link>
+        </div>
+        <hr className="rule mt-4 mb-2" />
+
+        {recentActivity.length === 0 ? (
+          <p className="py-6 text-sm text-muted">No changes recorded yet.</p>
+        ) : (
+          <ul>
+            {recentActivity.map((entry) => (
+              <li
+                key={entry.id}
+                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line py-3 text-sm"
+              >
+                <span className="label shrink-0">
+                  {entry.createdAt.toISOString().slice(0, 16).replace("T", " ")}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{entry.summary}</span>
+                <span className="label truncate">{entry.actorEmail}</span>
               </li>
             ))}
           </ul>

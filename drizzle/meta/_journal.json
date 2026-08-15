@@ -15,6 +15,13 @@
       "when": 1786698028533,
       "tag": "0001_brave_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786767095827,
+      "tag": "0002_quick_vermin",
+      "breakpoints": true
     }
   ]
 }
