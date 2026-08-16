@@ -91,6 +91,7 @@ validates the name first.
 ```bash
 npm run typecheck
 npm run lint
+npm test                      # unit tests — no database, network or credentials
 npm run verify:entitlements   # 16 checks — scratch database only
 npm run verify:exposure       # asserts no private column reaches the storefront
 npm run verify:seo            # reports pages with no description of their own
@@ -552,8 +553,12 @@ links and Stripe redirects will point at the wrong host.
   need an exact global limit (Upstash, Vercel KV).
 - **`style-src` still needs `'unsafe-inline'`.** Next injects inline `<style>`
   while streaming and offers no nonce hook for it.
-- **The S3 upload path is the one thing never exercised end to end** here, for
-  want of bucket credentials. `--skip-upload` and `--local` work around it.
+- **`PutObject` has never run against a real bucket**, for want of credentials;
+  `--skip-upload` and `--local` work around it. The *download* half is covered:
+  presigning is local HMAC computation, so `npm test` asserts the real signed
+  URL — bucket, key, TTL, that the secret never appears in it, and that a
+  filename cannot inject a header. What no test can tell you is whether the
+  object exists or whether the provider accepts the signature.
 - **Several catalog pages have no description of their own.** Every page emits
   one — `metaDescription()` guarantees that — but the last-resort fallback is
   the generic brand line, so a page with no copy renders correctly while being

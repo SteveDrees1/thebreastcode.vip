@@ -39,18 +39,30 @@ npm run verify:exposure       # 5 cases, including a control that must fail
 
 Both write to and delete from the database. Never point them at production.
 
+`npm test` needs no database, network or real credentials. It covers the
+security-relevant pure logic directly: presigned download URLs (TTL, that the
+secret key never appears in the URL, and that a filename cannot inject a
+Content-Disposition header), `safeJsonLd` escaping, the rate limiter, and a
+runtime assertion that no private column sits in the public projections. Each
+of those assertions was confirmed to fail when the corresponding protection is
+removed from the source, rather than assumed to be watching.
+
 `npm run verify:seo` is separate: it only reads, so it is safe against any
 database including a copy of production.
 
 ## Automation
 
-- **CI** (`.github/workflows/ci.yml`) — typecheck, lint, the verify suites
-  against a disposable Postgres service container, build, and `npm audit`.
+- **CI** (`.github/workflows/ci.yml`) — typecheck, lint, `npm test`, the verify
+  suites against a disposable Postgres service container, build, and
+  `npm audit`.
 - **CodeQL** (`.github/workflows/codeql.yml`) — `security-extended` on every
   push and PR to `main`, plus weekly so new queries reach existing code.
 - **Dependabot** (`.github/dependabot.yml`) — weekly, for npm and for GitHub
-  Actions. Major Next upgrades are excluded because they need a deliberate
-  branch with the full suite run against them.
+  Actions. Majors are excluded for the packages the app's behaviour rests on
+  (next, stripe, zod, next-auth, react, typescript, eslint, nodemailer), and
+  minors too for the pre-1.0 ones (drizzle-orm, drizzle-kit, sharp) where a
+  minor *is* the breaking release. Those need a deliberate branch with the full
+  suite run against them. Security updates ignore that list.
 
 ## Known exceptions
 

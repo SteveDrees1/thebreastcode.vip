@@ -77,6 +77,7 @@ is_admin implies read, can_audit never implies write…
 ```bash
 npm run typecheck
 npm run lint
+npm test                      # unit tests; no database needed
 npm run verify:entitlements   # scratch database only
 npm run verify:exposure
 npm run verify:seo            # reports thin copy; read-only

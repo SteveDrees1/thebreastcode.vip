@@ -67,6 +67,7 @@ Checks, all of which should pass before pushing:
 ```bash
 npm run typecheck
 npm run lint
+npm test                          # unit tests; no database, no network
 npm run verify:entitlements       # scratch database only — writes and deletes
 npm run verify:exposure           # scratch database only
 npm run verify:seo                # read-only; safe against any database
@@ -111,8 +112,8 @@ Observable in the code, not general advice:
 - Automated sessions are assigned a branch and must push only to it.
 - Do not open a pull request unless the user explicitly asks for one.
 - CI runs on every push and PR (`.github/workflows/ci.yml`): typecheck, lint,
-  the verify suites against a disposable Postgres service container, build, and
-  `npm audit`. CodeQL and Dependabot run alongside it.
+  `npm test`, the verify suites against a disposable Postgres service
+  container, build, and `npm audit`. CodeQL and Dependabot run alongside it.
 - No PR template, no CODEOWNERS, and no branch protection — protection is a
   repository setting nobody has enabled, so a red build does not block a merge.
 
@@ -122,9 +123,11 @@ Worth raising once, not fixing unprompted:
 
 - No `LICENSE` — all rights reserved by default.
 - No branch protection, so CI reports but cannot block a merge.
-- No automated test suite beyond the three `verify:*` scripts, which cover
-  entitlements, field exposure and SEO metadata but nothing else. There are no
-  unit tests and no browser tests.
+- No browser or end-to-end tests. `npm test` covers the pure logic (presigned
+  downloads, SEO helpers, rate limiting, the public projections) and the three
+  `verify:*` scripts cover entitlements, field exposure and SEO metadata
+  against a real database — but nothing drives a real browser, and no test
+  exercises Stripe or an actual S3 bucket.
 - 8 high-severity advisories in Next 15.5.23's bundled `sharp` and `postcss`,
   accepted with a compensating control — see the exception register in
   `SECURITY.md`. Retired by the Next 16 upgrade, which is not done.
