@@ -57,7 +57,36 @@ async function main() {
   }
   await status("sitemap.xml serves", "/sitemap.xml", 200);
   await status("robots.txt serves", "/robots.txt", 200);
-  await status("health serves", "/api/health", 200);
+  // Not asserted as 200. A partially configured environment — CI, or a preview
+  // deploy without Stripe keys — is *correctly* 503 "degraded", and demanding
+  // 200 here would make the smoke test a configuration check rather than a
+  // liveness check. What matters is that the endpoint answers with a verdict
+  // it defines. (This assertion originally said 200 and failed in CI for
+  // exactly that reason.)
+  {
+    const { res, body } = await get("/api/health");
+    expect(
+      "health answers with a known verdict",
+      [200, 503].includes(res.status),
+      `/api/health returned ${res.status}; expected 200 (ok) or 503 (degraded)`,
+    );
+    let parsed: { status?: string } = {};
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      /* handled by the assertion below */
+    }
+    expect(
+      "health reports ok or degraded",
+      parsed.status === "ok" || parsed.status === "degraded",
+      `body was not a recognised verdict: ${body.slice(0, 120)}`,
+    );
+    expect(
+      "the health status matches the status code",
+      (res.status === 200) === (parsed.status === "ok"),
+      `status code ${res.status} disagrees with body status "${parsed.status}"`,
+    );
+  }
 
   // --- The 404 path actually 404s ------------------------------------------
   // Next will happily serve a custom not-found with a 200 if a route opts into
