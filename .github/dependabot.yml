@@ -20,9 +20,42 @@ updates:
         dependency-type: production
         update-types: [patch]
     ignore:
-      # Next major upgrades change App Router behaviour and need a deliberate
-      # branch with the full check suite run against it, not an automated PR.
+      # Majors of the packages the app's behaviour actually rests on.
+      #
+      # The first run of this config opened eight PRs, five of them majors:
+      # stripe 17->22, zod 3->4, typescript 5->7, eslint 9->10, drizzle-kit.
+      # Grouping does not catch those — a major update falls outside a group
+      # and gets its own PR — so the "one grouped PR" intent only ever applied
+      # to the minor and patch traffic.
+      #
+      # Each of these needs a migration rather than a version bump. Stripe
+      # majors move the pinned API version and change webhook payload shapes,
+      # which is the money path — `2025-02-24.acacia` is pinned in lib/stripe.ts
+      # and a bump has to be reconciled with it. Zod 4 is a rewrite; the admin
+      # only reads `error.issues[0]`, which does survive, so the risk is the
+      # schema builders rather than that line. Auth.js is still on a 5.0 beta
+      # line where even minors move fast.
+      #
+      # This only suppresses *version* updates. Dependabot security updates
+      # ignore this list, so a published advisory still opens a PR — which is
+      # the whole point of having the bot.
       - dependency-name: next
+        update-types: [version-update:semver-major]
+      - dependency-name: stripe
+        update-types: [version-update:semver-major]
+      - dependency-name: zod
+        update-types: [version-update:semver-major]
+      - dependency-name: next-auth
+        update-types: [version-update:semver-major]
+      - dependency-name: drizzle-orm
+        update-types: [version-update:semver-major]
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint
         update-types: [version-update:semver-major]
     commit-message:
       prefix: "chore"
