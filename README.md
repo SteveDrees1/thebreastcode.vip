@@ -93,13 +93,22 @@ npm run typecheck
 npm run lint
 npm run verify:entitlements   # 16 checks — scratch database only
 npm run verify:exposure       # asserts no private column reaches the storefront
+npm run verify:seo            # reports pages with no description of their own
 npm run build
 ```
 
 `verify:entitlements` exercises purchase, expiry, subscription lapse, promo
 caps, webhook-replay idempotency and refund revocation against a real database.
 `verify:exposure` includes a control assertion that an *unprojected* row still
-contains `fileKey`, so it cannot pass by testing nothing.
+contains `fileKey`, so it cannot pass by testing nothing. `verify:seo` only
+reads, so unlike the other two it is safe against any database; it exits
+non-zero only on a structural fault, because thin copy is a content task rather
+than a broken build.
+
+All of these run in CI (`.github/workflows/ci.yml`) on every push and pull
+request, against a disposable Postgres service container, alongside CodeQL and
+`npm audit`. Nothing blocks a merge, though — branch protection is a repository
+setting and is not enabled.
 
 ## Stack
 
@@ -545,6 +554,16 @@ links and Stripe redirects will point at the wrong host.
   while streaming and offers no nonce hook for it.
 - **The S3 upload path is the one thing never exercised end to end** here, for
   want of bucket credentials. `--skip-upload` and `--local` work around it.
+- **Several catalog pages have no description of their own.** Every page emits
+  one — `metaDescription()` guarantees that — but the last-resort fallback is
+  the generic brand line, so a page with no copy renders correctly while being
+  indistinguishable from every other page in a search result. `npm run
+  verify:seo` lists which ones — 1 of 4 on a freshly seeded catalog, more once
+  you import real PDFs. Fixing it means writing copy, not code.
+- **8 high-severity advisories in Next's bundled `sharp` and `postcss`**, with
+  no patch below Next 16. Accepted with a compensating control (remote image
+  optimization is off, so nothing attacker-controlled reaches `sharp`) and
+  recorded in `SECURITY.md`.
 
 ## Not built yet
 

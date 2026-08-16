@@ -92,18 +92,21 @@ async function main() {
     }
   }
 
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   console.log(
-    `\nChecked ${entries.length} published pages ` +
-      `(${publishedProducts.length} products, ${publishedBundles.length} bundles).`,
+    `\nChecked ${plural(entries.length, "published page")} ` +
+      `(${plural(publishedProducts.length, "product")}, ` +
+      `${plural(publishedBundles.length, "bundle")}).`,
   );
 
   if (errors > 0) {
-    console.error(`${errors} structural problem(s), ${warnings} thin.`);
+    console.error(`${plural(errors, "structural problem")}, ${warnings} thin.`);
     process.exit(1);
   }
   if (warnings > 0) {
     console.warn(
-      `${warnings} page(s) need copy. Not a build failure — write the descriptions when you can.`,
+      `${plural(warnings, "page")} ${warnings === 1 ? "needs" : "need"} copy. ` +
+        "Not a build failure — write the descriptions when you can.",
     );
   } else {
     console.log("Every published page has a title and a description of its own.");

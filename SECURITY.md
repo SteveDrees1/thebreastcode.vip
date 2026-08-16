@@ -37,10 +37,10 @@ npm run verify:entitlements   # 16 cases; scratch database only
 npm run verify:exposure       # 5 cases, including a control that must fail
 ```
 
-`npm run verify:seo` is read-only and safe against any database, including a
-copy of production.
-
 Both write to and delete from the database. Never point them at production.
+
+`npm run verify:seo` is separate: it only reads, so it is safe against any
+database including a copy of production.
 
 ## Automation
 

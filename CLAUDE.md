@@ -110,16 +110,24 @@ Observable in the code, not general advice:
   and name what was verified.
 - Automated sessions are assigned a branch and must push only to it.
 - Do not open a pull request unless the user explicitly asks for one.
-- No PR template, no CODEOWNERS, no branch protection, no CI configured.
+- CI runs on every push and PR (`.github/workflows/ci.yml`): typecheck, lint,
+  the verify suites against a disposable Postgres service container, build, and
+  `npm audit`. CodeQL and Dependabot run alongside it.
+- No PR template, no CODEOWNERS, and no branch protection — protection is a
+  repository setting nobody has enabled, so a red build does not block a merge.
 
 ## Outstanding gaps
 
 Worth raising once, not fixing unprompted:
 
 - No `LICENSE` — all rights reserved by default.
-- No CI, so the checks above run only when someone runs them.
-- No automated test suite beyond the two `verify:*` scripts, which cover
-  entitlements and field exposure but nothing else.
+- No branch protection, so CI reports but cannot block a merge.
+- No automated test suite beyond the three `verify:*` scripts, which cover
+  entitlements, field exposure and SEO metadata but nothing else. There are no
+  unit tests and no browser tests.
+- 8 high-severity advisories in Next 15.5.23's bundled `sharp` and `postcss`,
+  accepted with a compensating control — see the exception register in
+  `SECURITY.md`. Retired by the Next 16 upgrade, which is not done.
 - The S3 `PutObject` upload path has never been exercised against real
   credentials; seeded `fileKey` values point at objects that do not exist, so
   downloads 404 at the storage layer even though the entitlement check passes.
