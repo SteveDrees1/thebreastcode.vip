@@ -1,0 +1,30 @@
+Copyright (c) 2026 Steve Drees. All rights reserved.
+
+This software and its source code are proprietary and confidential.
+
+No permission is granted to any person to use, copy, modify, merge, publish,
+distribute, sublicense, or sell copies of this software or its source code,
+in whole or in part, without the prior written permission of the copyright
+holder.
+
+Viewing this repository does not grant any licence to its contents.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---
+
+Note on scope: this licence covers the application source code in this
+repository. It does not cover the PDF guides sold through it, which are
+separate works, nor the third-party dependencies listed in package.json, each
+of which carries its own licence.
+
+This file states the position that already applied by default — without a
+licence file, all rights are reserved automatically. It is written down so the
+position is explicit rather than inferred. If you want this to be open source
+instead, replace this file: the choice is the copyright holder's, and nothing
+about the code assumes either answer.

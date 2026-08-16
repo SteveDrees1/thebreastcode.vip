@@ -121,7 +121,6 @@ Observable in the code, not general advice:
 
 Worth raising once, not fixing unprompted:
 
-- No `LICENSE` — all rights reserved by default.
 - No branch protection, so CI reports but cannot block a merge.
 - No browser or end-to-end tests. `npm test` covers the pure logic (presigned
   downloads, SEO helpers, rate limiting, the public projections) and the three
