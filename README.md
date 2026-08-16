@@ -97,6 +97,7 @@ npm run verify:exposure       # asserts no private column reaches the storefront
 npm run verify:seo            # reports pages with no description of their own
 npm run build
 npm run verify:smoke          # against a running server: npm start, then this
+npm run verify:legal          # unfilled legal placeholders; --strict before launch
 ```
 
 `verify:entitlements` exercises purchase, expiry, subscription lapse, promo
@@ -541,6 +542,23 @@ production database as part of your release step.
 
 `AUTH_URL` and `NEXT_PUBLIC_SITE_URL` must match the public origin, or magic
 links and Stripe redirects will point at the wrong host.
+
+## Legal
+
+`/terms` and `/privacy` are written and linked from every page. Two things to
+know before taking real money, both covered in [LEGAL.md](LEGAL.md):
+
+1. **`src/lib/legal.ts` ships with placeholders, not invented company details.**
+   A terms page naming a company that does not exist is worse than no page.
+   `npm run verify:legal` lists what is missing; `-- --strict` fails while any
+   remain.
+2. **Checkout requires a Terms of service URL on your Stripe account.** The
+   session sets `consent_collection`, which Stripe rejects without one — so
+   every checkout fails until it is set. This is also what obtains the EU/UK
+   waiver of the 14-day right to cancel, which a terms document alone cannot
+   do.
+
+Neither document has been reviewed by a lawyer.
 
 ## Operations
 

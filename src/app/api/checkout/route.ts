@@ -58,6 +58,45 @@ export async function POST(req: Request) {
     customer_update: { address: "auto" as const, name: "auto" as const },
     billing_address_collection: "auto" as const,
     allow_promotion_codes: true,
+
+    /*
+     * Terms acceptance, and the waiver that goes with it.
+     *
+     * A UK or EU consumer buying at a distance has 14 days to cancel. For
+     * digital content delivered immediately that right survives *unless* the
+     * customer gave express prior consent to delivery starting and
+     * acknowledged losing the right — Consumer Rights Directive art. 16(m),
+     * and reg. 37 of the UK Consumer Contracts Regulations.
+     *
+     * Without this, every download here would remain refundable for fourteen
+     * days no matter what the terms page said, because the waiver has to be
+     * obtained at the point of sale rather than declared in a document
+     * nobody was made to read.
+     *
+     * `terms_of_service: "required"` makes Checkout show a tickbox linking to
+     * the terms and refuse to complete without it, and records the acceptance
+     * on the session. The custom text is what makes the consent *express*:
+     * it states what is being agreed to instead of relying on the customer
+     * opening the terms and finding clause 5.
+     *
+     * The wording here and the "Your right to cancel" section of /terms are a
+     * pair. Changing one without the other breaks the waiver.
+     *
+     * REQUIRED STRIPE SETTING: `terms_of_service: "required"` needs a Terms of
+     * Service URL on the Stripe account (Dashboard → Settings → Business →
+     * Public details). Without it Stripe rejects the session and *every*
+     * checkout fails, not just the first. This was not verified against the
+     * live API — there are no real keys here — so set it before taking
+     * payments, and buy something in test mode to confirm. See LEGAL.md.
+     */
+    consent_collection: { terms_of_service: "required" as const },
+    custom_text: {
+      terms_of_service_acceptance: {
+        message:
+          "I agree to the terms of sale, and I ask for my download to be available immediately. " +
+          "I understand that once it is, I lose my right to cancel.",
+      },
+    },
   };
 
   try {

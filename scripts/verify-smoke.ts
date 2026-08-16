@@ -52,7 +52,7 @@ async function main() {
   console.log(`Smoke-testing ${base}\n`);
 
   // --- Routes answer at all -------------------------------------------------
-  for (const path of ["/", "/catalog", "/bundles", "/pricing", "/terms", "/signin"]) {
+  for (const path of ["/", "/catalog", "/bundles", "/pricing", "/terms", "/privacy", "/signin"]) {
     await status(`${path} serves`, path, 200);
   }
   await status("sitemap.xml serves", "/sitemap.xml", 200);
@@ -198,6 +198,44 @@ async function main() {
       missing.length === 0,
       `missing from sitemap: ${missing.join(", ")}`,
     );
+  }
+
+  // --- The legal documents are reachable and complete -----------------------
+  // Terms a customer cannot find are terms that were never presented, so the
+  // footer link matters as much as the page existing.
+  {
+    const { body: home } = await get("/");
+    for (const path of ["/terms", "/privacy"]) {
+      expect(
+        `${path} is linked from the site footer`,
+        home.includes(`href="${path}"`),
+        `no link to ${path} in the homepage HTML`,
+      );
+    }
+
+    const { body: terms } = await get("/terms");
+    expect(
+      "terms state the cancellation waiver",
+      terms.includes("lose your right to cancel"),
+      "the waiver wording is missing — it is the pair to the checkout consent box",
+    );
+
+    const { body: privacy } = await get("/privacy");
+    expect(
+      "privacy policy describes the hashed-IP download log",
+      privacy.includes("salted SHA-256 hash"),
+      "the policy no longer matches what the code stores",
+    );
+
+    for (const [path, body] of [["/terms", terms], ["/privacy", privacy]] as const) {
+      // The marker should never reach a rendered page; legalValue() turns an
+      // unfilled placeholder into readable text instead.
+      expect(
+        `${path} leaks no raw TODO_LEGAL marker`,
+        !body.includes("TODO_LEGAL"),
+        `raw placeholder marker rendered on ${path}`,
+      );
+    }
   }
 
   // --- Health endpoint discloses nothing to a stranger ----------------------

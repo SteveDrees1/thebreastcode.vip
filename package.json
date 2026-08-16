@@ -22,6 +22,7 @@
     "verify:exposure": "tsx scripts/verify-exposure.ts",
     "verify:seo": "tsx scripts/verify-seo.ts",
     "verify:smoke": "tsx scripts/verify-smoke.ts",
+    "verify:legal": "tsx scripts/verify-legal.ts",
     "make:cover": "tsx scripts/make-cover.mts"
   },
   "dependencies": {

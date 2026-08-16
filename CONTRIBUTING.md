@@ -83,6 +83,7 @@ npm run verify:exposure
 npm run verify:seo            # reports thin copy; read-only
 npm run build
 npm run verify:smoke          # against a running server
+npm run verify:legal          # legal placeholders
 ```
 
 `verify:entitlements` and `verify:exposure` both write to and delete from the

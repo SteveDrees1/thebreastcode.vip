@@ -73,6 +73,7 @@ npm run verify:exposure           # scratch database only
 npm run verify:seo                # read-only; safe against any database
 npm run build
 npm run verify:smoke              # needs a running server; read-only
+npm run verify:legal              # legal placeholders; read-only
 ```
 
 `verify:entitlements` and `verify:exposure` both write to and delete from the
@@ -94,6 +95,11 @@ Observable in the code, not general advice:
 - Server actions authorise individually; never rely on a parent layout.
 - Schema columns carry both a Drizzle `$defaultFn` and a SQL `DEFAULT`, so raw
   SQL inserts work as well as ORM inserts.
+- Legal facts live only in `src/lib/legal.ts`, as marked `TODO_LEGAL:`
+  placeholders rather than invented company details. `/terms` and `/privacy`
+  render them through `legalValue()`. The privacy policy makes specific claims
+  about what `src/db/schema.ts` stores — adding a column that holds personal
+  data makes the policy wrong until it is updated. See `LEGAL.md`.
 - Brand strings live only in `src/lib/brand.ts`. Do not hardcode the name,
   tagline or palette anywhere else; `next/og` images duplicate the palette there
   because they cannot read CSS variables.

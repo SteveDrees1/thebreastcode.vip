@@ -178,6 +178,7 @@ export default async function RootLayout({
                   { href: "/referrals", label: "Refer a friend" },
                   { href: "/redeem", label: "Redeem a code" },
                   { href: "/terms", label: "Terms" },
+                  { href: "/privacy", label: "Privacy" },
                 ].map((item) => (
                   <Link
                     key={item.href}
