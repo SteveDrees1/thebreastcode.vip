@@ -86,6 +86,40 @@ after.
   years, depending on where we are established". Replace that with the actual
   period once you know your jurisdiction.
 
+## Answering a data request
+
+`/privacy` tells customers they can ask for a copy of their data and ask for it
+to be deleted. Those rights exist whether or not the code helps; this makes
+them answerable without hand-written SQL across eleven tables.
+
+```bash
+npm run data:request -- --export someone@example.com --out subject.json
+npm run data:request -- --erase  someone@example.com --confirm
+```
+
+Use `--out` rather than redirecting: `npm run` prints its own banner to stdout
+and corrupts the JSON otherwise.
+
+**Erasure anonymises; it does not delete the row.** The schema forces that —
+ten foreign keys onto `users.id` cascade, `orders` among them, so deleting the
+user would destroy the sale record tax law requires keeping. Instead the
+identifying columns are irreversibly overwritten, which is the "deleted or
+irreversibly anonymised" wording the policy already uses. What happens,
+verified against a real database:
+
+| | |
+| --- | --- |
+| Account | email → `erased-<hash>@invalid`, name/image/emailVerified cleared, admin and auditor flags dropped |
+| Sessions, provider links | deleted |
+| Entitlements | revoked — library access ends, as the policy says it does |
+| Download log | deleted entirely; its only purpose was spotting a shared account |
+| Audit entries | kept, because they record changes to the catalog rather than the subject — but the snapshotted `actor_email` is scrubbed |
+| Orders | kept, now anonymous: the tax record |
+
+Two things the script cannot reach, and prints as reminders: delete the
+customer in the Stripe dashboard, and confirm your email provider is not
+holding copies of the sign-in messages.
+
 ## Things that are already handled
 
 Worth knowing so they are not solved twice:

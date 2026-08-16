@@ -23,6 +23,7 @@
     "verify:seo": "tsx scripts/verify-seo.ts",
     "verify:smoke": "tsx scripts/verify-smoke.ts",
     "verify:legal": "tsx scripts/verify-legal.ts",
+    "data:request": "tsx scripts/data-request.ts",
     "make:cover": "tsx scripts/make-cover.mts"
   },
   "dependencies": {

@@ -558,6 +558,11 @@ know before taking real money, both covered in [LEGAL.md](LEGAL.md):
    waiver of the 14-day right to cancel, which a terms document alone cannot
    do.
 
+Subject access and erasure requests are answerable with
+`npm run data:request` — export a customer's data as JSON, or irreversibly
+anonymise them while keeping the sale record tax law requires. See
+[LEGAL.md](LEGAL.md).
+
 Neither document has been reviewed by a lawyer.
 
 ## Operations
