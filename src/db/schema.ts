@@ -43,7 +43,7 @@ const generateReferralCode = () =>
 // ---------------------------------------------------------------------------
 
 export const users = pgTable("users", {
-  id: text("id").primaryKey().$defaultFn(cuid),
+  id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
   name: text("name"),
   email: text("email").notNull().unique(),
   emailVerified: timestamp("email_verified", { mode: "date", withTimezone: true }),
@@ -57,7 +57,13 @@ export const users = pgTable("users", {
    * that users created by the Auth.js adapter (which only knows about its own
    * columns) still get one.
    */
-  referralCode: text("referral_code").notNull().unique().$defaultFn(generateReferralCode),
+  referralCode: text("referral_code")
+    .notNull()
+    .unique()
+    .$defaultFn(generateReferralCode)
+    // Hex fallback for hand-written inserts. The app-side generator produces
+    // the nicer vowel-free alphabet; this only has to be unique and present.
+    .default(sql`upper(substring(replace(gen_random_uuid()::text, '-', '') from 1 for 8))`),
 
   /** Staff flag: full read/write access to the console. */
   isAdmin: boolean("is_admin").notNull().default(false),
@@ -125,7 +131,7 @@ export const publishStatus = pgEnum("publish_status", ["draft", "published", "ar
 export const products = pgTable(
   "products",
   {
-    id: text("id").primaryKey().$defaultFn(cuid),
+    id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
     slug: text("slug").notNull().unique(),
     title: text("title").notNull(),
     subtitle: text("subtitle"),
@@ -176,7 +182,7 @@ export const products = pgTable(
 );
 
 export const bundles = pgTable("bundles", {
-  id: text("id").primaryKey().$defaultFn(cuid),
+  id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
   slug: text("slug").notNull().unique(),
   title: text("title").notNull(),
   subtitle: text("subtitle"),
@@ -214,7 +220,7 @@ export const lineItemKind = pgEnum("line_item_kind", ["product", "bundle", "subs
 export const orders = pgTable(
   "orders",
   {
-    id: text("id").primaryKey().$defaultFn(cuid),
+    id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -238,7 +244,7 @@ export const orders = pgTable(
 );
 
 export const orderItems = pgTable("order_items", {
-  id: text("id").primaryKey().$defaultFn(cuid),
+  id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
   orderId: text("order_id")
     .notNull()
     .references(() => orders.id, { onDelete: "cascade" }),
@@ -268,7 +274,7 @@ export const subscriptionStatus = pgEnum("subscription_status", [
 export const subscriptions = pgTable(
   "subscriptions",
   {
-    id: text("id").primaryKey().$defaultFn(cuid),
+    id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -299,7 +305,7 @@ export const entitlementSource = pgEnum("entitlement_source", [
 export const entitlements = pgTable(
   "entitlements",
   {
-    id: text("id").primaryKey().$defaultFn(cuid),
+    id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -348,7 +354,7 @@ export const promoKind = pgEnum("promo_kind", [
 export const promoCodes = pgTable(
   "promo_codes",
   {
-    id: text("id").primaryKey().$defaultFn(cuid),
+    id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
     code: text("code").notNull().unique(),
     kind: promoKind("kind").notNull(),
     productId: text("product_id").references(() => products.id, { onDelete: "cascade" }),
@@ -373,7 +379,7 @@ export const promoCodes = pgTable(
 export const promoRedemptions = pgTable(
   "promo_redemptions",
   {
-    id: text("id").primaryKey().$defaultFn(cuid),
+    id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
     promoCodeId: text("promo_code_id")
       .notNull()
       .references(() => promoCodes.id, { onDelete: "cascade" }),
@@ -395,7 +401,7 @@ export const referralStatus = pgEnum("referral_status", ["pending", "qualified",
 export const referrals = pgTable(
   "referrals",
   {
-    id: text("id").primaryKey().$defaultFn(cuid),
+    id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
     referrerUserId: text("referrer_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -419,7 +425,7 @@ export const referrals = pgTable(
 export const referralCredits = pgTable(
   "referral_credits",
   {
-    id: text("id").primaryKey().$defaultFn(cuid),
+    id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -441,7 +447,7 @@ export const referralCredits = pgTable(
 export const downloadLogs = pgTable(
   "download_logs",
   {
-    id: text("id").primaryKey().$defaultFn(cuid),
+    id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -468,7 +474,7 @@ export const downloadLogs = pgTable(
 export const adminAuditLog = pgTable(
   "admin_audit_log",
   {
-    id: text("id").primaryKey().$defaultFn(cuid),
+    id: text("id").primaryKey().$defaultFn(cuid).default(sql`gen_random_uuid()::text`),
 
     actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
     /** Snapshot, so the entry survives the account being removed. */
