@@ -47,8 +47,6 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: next-auth
         update-types: [version-update:semver-major]
-      - dependency-name: drizzle-orm
-        update-types: [version-update:semver-major]
       - dependency-name: react
         update-types: [version-update:semver-major]
       - dependency-name: react-dom
@@ -56,6 +54,23 @@ updates:
       - dependency-name: typescript
         update-types: [version-update:semver-major]
       - dependency-name: eslint
+        update-types: [version-update:semver-major]
+
+      # Pre-1.0 packages, where a minor *is* the breaking release. Gating only
+      # semver-major on these does nothing: Dependabot proposed drizzle-orm
+      # 0.38 -> 0.45 (seven minors, the whole data layer) and semver-major
+      # never fired. Patches still flow.
+      - dependency-name: drizzle-orm
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      - dependency-name: drizzle-kit
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      - dependency-name: sharp
+        update-types: [version-update:semver-minor, version-update:semver-major]
+
+      # The magic-link transport. auth.ts wires next-auth's Nodemailer
+      # provider, so a major here lands on the only way anyone signs in, and
+      # nothing in CI exercises an actual email send.
+      - dependency-name: nodemailer
         update-types: [version-update:semver-major]
     commit-message:
       prefix: "chore"
