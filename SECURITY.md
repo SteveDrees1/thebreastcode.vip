@@ -41,7 +41,9 @@ npm run verify:exposure       # 5 cases, including a control that must fail
 Both write to and delete from the database. Never point them at production.
 
 `npm test` needs no database, network or real credentials. It covers the
-security-relevant pure logic directly: presigned download URLs (TTL, that the
+security-relevant logic directly, including the webhook route's signature gate
+(an unsigned POST, a forged signature and a tampered body all 400 before the
+handler runs, verified by calling the real route): presigned download URLs (TTL, that the
 secret key never appears in the URL, and that a filename cannot inject a
 Content-Disposition header), `safeJsonLd` escaping, the rate limiter, and a
 runtime assertion that no private column sits in the public projections. Each

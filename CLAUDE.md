@@ -123,10 +123,11 @@ Worth raising once, not fixing unprompted:
 
 - No branch protection, so CI reports but cannot block a merge.
 - No browser or end-to-end tests. `npm test` covers the pure logic (presigned
-  downloads, SEO helpers, rate limiting, the public projections) and the three
+  downloads, SEO helpers, rate limiting, the public projections, the health
+  config check) and the webhook route's signature gate, and the three
   `verify:*` scripts cover entitlements, field exposure and SEO metadata
-  against a real database — but nothing drives a real browser, and no test
-  exercises Stripe or an actual S3 bucket.
+  against a real database — but nothing drives a real browser, nothing talks to
+  the Stripe API, and nothing writes to an actual S3 bucket.
 - 4 high-severity advisories, all one nodemailer issue counted through
   `@auth/core`, `next-auth` and `@auth/drizzle-adapter`. Cannot be fixed
   without breaking Auth.js's declared peer range; the vector (`raw` messages)

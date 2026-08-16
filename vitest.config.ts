@@ -28,6 +28,10 @@ export default defineConfig({
       S3_ACCESS_KEY_ID: "AKIAtesttesttesttest",
       S3_SECRET_ACCESS_KEY: "test-secret-key-value-not-real",
       DOWNLOAD_URL_TTL_SECONDS: "300",
+      // Enough for the webhook route module to import; no network is used.
+      STRIPE_SECRET_KEY: "sk_test_not_a_real_key",
+      STRIPE_WEBHOOK_SECRET: "whsec_test_secret_value",
+      STRIPE_SUBSCRIPTION_PRICE_ID: "price_test",
     },
   },
 });
