@@ -79,6 +79,7 @@ npm run typecheck
 npm run lint
 npm run verify:entitlements   # scratch database only
 npm run verify:exposure
+npm run verify:seo            # reports thin copy; read-only
 npm run build
 ```
 

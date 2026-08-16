@@ -63,6 +63,77 @@ export function breadcrumbJsonLd(trail: Array<{ name: string; path: string }>) {
   };
 }
 
+/** Google truncates around 155–160 characters; this is the practical ceiling. */
+const DESCRIPTION_LIMIT = 155;
+
+/**
+ * First usable description from a list of candidates, never blank.
+ *
+ * The old expression was `product.subtitle ?? product.description.slice(0, 155)`,
+ * which has two holes. `??` only falls through on null/undefined, so a subtitle
+ * stored as "" passes straight through as the description — the admin form
+ * normalises empty to null, but `import:product` does not. And when every
+ * candidate is blank the result is "", which makes Next omit the meta tag
+ * entirely: `joinery-reference` shipped with no description at all, and its
+ * Product JSON-LD carried `description: ""`.
+ *
+ * Blank-after-trim counts as absent here, whichever way it was stored, and the
+ * caller supplies a final fallback so the return value is always non-empty.
+ * Truncation lands on a word boundary with an ellipsis rather than mid-word.
+ */
+export function metaDescription(...candidates: Array<string | null | undefined>): string {
+  for (const candidate of candidates) {
+    const text = candidate?.trim().replace(/\s+/g, " ");
+    if (!text) continue;
+    if (text.length <= DESCRIPTION_LIMIT) return text;
+
+    const cut = text.slice(0, DESCRIPTION_LIMIT);
+    const lastSpace = cut.lastIndexOf(" ");
+    // Only break at a space if one falls reasonably late; a very long first
+    // word would otherwise leave a stub.
+    return `${(lastSpace > DESCRIPTION_LIMIT * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[,;:.\s]+$/, "")}…`;
+  }
+  return brand.description;
+}
+
+/**
+ * Product structured data for anything sellable — single guides and bundles
+ * alike. Bundles previously emitted no JSON-LD at all despite having a title,
+ * a price and an availability, so they were ineligible for the price and
+ * availability treatment their component products already got.
+ *
+ * `description` is always present because it comes from `metaDescription`,
+ * which cannot return empty. `image` is omitted rather than sent empty, since
+ * an empty string is worse than an absent optional property.
+ */
+export function productJsonLd(item: {
+  name: string;
+  description: string;
+  sku: string;
+  path: string;
+  priceCents: number;
+  currency: string;
+  image?: string | null;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: item.name,
+    description: item.description,
+    sku: item.sku,
+    brand: { "@type": "Brand", name: brand.name },
+    ...(item.image ? { image: [item.image] } : {}),
+    offers: {
+      "@type": "Offer",
+      price: (item.priceCents / 100).toFixed(2),
+      priceCurrency: item.currency.toUpperCase(),
+      availability: "https://schema.org/InStock",
+      url: `${env.siteUrl}${item.path}`,
+      seller: { "@id": `${env.siteUrl}/#organization` },
+    },
+  };
+}
+
 /** Catalog listing, so the index page can rank as a collection. */
 export function itemListJsonLd(items: Array<{ title: string; slug: string }>) {
   return {

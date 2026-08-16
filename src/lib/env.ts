@@ -25,10 +25,25 @@ export const env = {
   get databaseUrl() {
     return required("DATABASE_URL");
   },
+  /**
+   * Origin used for canonicals, og:url, the sitemap and JSON-LD @ids.
+   *
+   * The order matters more than it looks. `VERCEL_URL` is the *deployment*
+   * hostname — `project-a1b2c3-team.vercel.app`, different for every single
+   * deploy — so using it for canonicals points them at a URL that is not the
+   * site, and a new one each release. `VERCEL_PROJECT_PRODUCTION_URL` is the
+   * stable production domain, which is what a canonical is for, so it is tried
+   * first and VERCEL_URL is left as the preview-only last resort.
+   *
+   * NEXT_PUBLIC_SITE_URL still wins, but note it is inlined at *build* time
+   * like every NEXT_PUBLIC_ variable: setting it only in the runtime
+   * environment has no effect. Set it in the build environment.
+   */
   get siteUrl() {
+    const fromVercel = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
     return (
       process.env.NEXT_PUBLIC_SITE_URL ??
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+      (fromVercel ? `https://${fromVercel}` : "http://localhost:3000")
     ).replace(/\/$/, "");
   },
 

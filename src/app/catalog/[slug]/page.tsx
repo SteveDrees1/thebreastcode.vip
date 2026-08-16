@@ -6,8 +6,7 @@ import { resolveAccess } from "@/lib/entitlements";
 import { getProductBySlug } from "@/lib/catalog";
 import { env } from "@/lib/env";
 import { formatPrice } from "@/lib/stripe";
-import { breadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
-import { brand } from "@/lib/brand";
+import { breadcrumbJsonLd, metaDescription, productJsonLd, safeJsonLd } from "@/lib/seo";
 import { CheckoutButton } from "@/components/checkout-button";
 
 /**
@@ -34,7 +33,7 @@ export async function generateMetadata({
   const product = await getProductBySlug(slug).catch(() => undefined);
   if (!product) return { title: "Not found" };
 
-  const description = product.subtitle ?? product.description.slice(0, 155);
+  const description = metaDescription(product.subtitle, product.description);
   return {
     title: product.title,
     description,
@@ -64,22 +63,17 @@ export default async function ProductPage({
   const via = await resolveAccess(session?.user?.id, product.id);
 
   // Product structured data drives price and availability in search results.
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
+  // Shared with the bundle page so both stay in step; the description goes
+  // through the same helper as the meta tag, which cannot return empty.
+  const jsonLd = productJsonLd({
     name: product.title,
-    description: product.subtitle ?? product.description.slice(0, 300),
+    description: metaDescription(product.subtitle, product.description),
     sku: product.sourceDocId ?? product.slug,
-    brand: { "@type": "Brand", name: brand.name },
-    ...(product.coverImageUrl ? { image: [product.coverImageUrl] } : {}),
-    offers: {
-      "@type": "Offer",
-      price: (product.priceCents / 100).toFixed(2),
-      priceCurrency: product.currency.toUpperCase(),
-      availability: "https://schema.org/InStock",
-      url: `${env.siteUrl}/catalog/${product.slug}`,
-    },
-  };
+    path: `/catalog/${product.slug}`,
+    priceCents: product.priceCents,
+    currency: product.currency,
+    image: product.coverImageUrl,
+  });
 
   return (
     <>

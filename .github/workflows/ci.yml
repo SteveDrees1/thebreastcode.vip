@@ -70,6 +70,13 @@ jobs:
       - name: Private-field exposure
         run: npm run verify:exposure
 
+      # Exits 0 for thin copy and non-zero only for a structural fault, so a
+      # missing description shows in the log without blocking a merge. Against
+      # the seeded catalog it reports the seed's own short descriptions, which
+      # is the honest result rather than a rigged green.
+      - name: SEO metadata
+        run: npm run verify:seo
+
       - run: npm run build
 
   audit:

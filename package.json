@@ -17,6 +17,7 @@
     "verify:entitlements": "tsx scripts/verify-entitlements.ts",
     "import:product": "tsx scripts/import-product.ts",
     "verify:exposure": "tsx scripts/verify-exposure.ts",
+    "verify:seo": "tsx scripts/verify-seo.ts",
     "make:cover": "tsx scripts/make-cover.mts"
   },
   "dependencies": {

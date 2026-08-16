@@ -5,8 +5,7 @@ import { auth } from "@/auth";
 import { ownedProductIds } from "@/lib/entitlements";
 import { getBundleBySlug, getBundleContents } from "@/lib/catalog";
 import { formatPrice } from "@/lib/stripe";
-import { breadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
-import { brand } from "@/lib/brand";
+import { breadcrumbJsonLd, metaDescription, productJsonLd, safeJsonLd } from "@/lib/seo";
 import { env } from "@/lib/env";
 import { CheckoutButton } from "@/components/checkout-button";
 
@@ -21,13 +20,25 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const bundle = await getBundleBySlug(slug).catch(() => undefined);
-  return bundle
-    ? {
-        title: bundle.title,
-        description: bundle.subtitle ?? undefined,
-        alternates: { canonical: `/bundles/${bundle.slug}` },
-      }
-    : { title: "Not found" };
+  if (!bundle) return { title: "Not found" };
+
+  // Was `bundle.subtitle ?? undefined`, with no fallback to the description at
+  // all — `complete-woodworking-series` has a null subtitle and an empty
+  // description, so it shipped with no meta description whatsoever. And there
+  // was no openGraph block here, so a shared bundle link fell back to the
+  // site-wide defaults and named the site instead of the bundle.
+  const description = metaDescription(bundle.subtitle, bundle.description);
+  return {
+    title: bundle.title,
+    description,
+    alternates: { canonical: `/bundles/${bundle.slug}` },
+    openGraph: {
+      type: "website",
+      title: bundle.title,
+      description,
+      url: `${env.siteUrl}/bundles/${bundle.slug}`,
+    },
+  };
 }
 
 export default async function BundlePage({
@@ -49,21 +60,15 @@ export default async function BundlePage({
   const fullPrice = contents.reduce((sum, p) => sum + p.priceCents, 0);
   const saving = fullPrice - bundle.priceCents;
 
-  const bundleJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
+  // Same builder as the product page, so the two never drift apart.
+  const bundleJsonLd = productJsonLd({
     name: bundle.title,
-    description: bundle.subtitle ?? bundle.description.slice(0, 300),
+    description: metaDescription(bundle.subtitle, bundle.description),
     sku: bundle.slug,
-    brand: { "@type": "Brand", name: brand.name },
-    offers: {
-      "@type": "Offer",
-      price: (bundle.priceCents / 100).toFixed(2),
-      priceCurrency: bundle.currency.toUpperCase(),
-      availability: "https://schema.org/InStock",
-      url: `${env.siteUrl}/bundles/${bundle.slug}`,
-    },
-  };
+    path: `/bundles/${bundle.slug}`,
+    priceCents: bundle.priceCents,
+    currency: bundle.currency,
+  });
 
   return (
     <>

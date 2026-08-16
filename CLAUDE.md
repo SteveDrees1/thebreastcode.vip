@@ -69,6 +69,7 @@ npm run typecheck
 npm run lint
 npm run verify:entitlements       # scratch database only — writes and deletes
 npm run verify:exposure           # scratch database only
+npm run verify:seo                # read-only; safe against any database
 npm run build
 ```
 

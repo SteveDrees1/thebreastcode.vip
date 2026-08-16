@@ -37,11 +37,14 @@ npm run verify:entitlements   # 16 cases; scratch database only
 npm run verify:exposure       # 5 cases, including a control that must fail
 ```
 
+`npm run verify:seo` is read-only and safe against any database, including a
+copy of production.
+
 Both write to and delete from the database. Never point them at production.
 
 ## Automation
 
-- **CI** (`.github/workflows/ci.yml`) — typecheck, lint, both verify suites
+- **CI** (`.github/workflows/ci.yml`) — typecheck, lint, the verify suites
   against a disposable Postgres service container, build, and `npm audit`.
 - **CodeQL** (`.github/workflows/codeql.yml`) — `security-extended` on every
   push and PR to `main`, plus weekly so new queries reach existing code.
