@@ -83,6 +83,19 @@ jobs:
 
       - run: npm run build
 
+      # CI built the app but never ran it, so a route that 500s or middleware
+      # that stopped protecting /admin would have shipped green. Start the
+      # built server and make the assertions against a process that is actually
+      # serving.
+      - name: Runtime smoke test
+        run: |
+          npx next start -p 3000 &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:3000/ && break
+            sleep 2
+          done
+          npm run verify:smoke -- http://127.0.0.1:3000
+
   audit:
     runs-on: ubuntu-latest
     permissions:

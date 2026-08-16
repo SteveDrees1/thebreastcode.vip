@@ -53,6 +53,15 @@ removed from the source, rather than assumed to be watching.
 `npm run verify:seo` is separate: it only reads, so it is safe against any
 database including a copy of production.
 
+`npm run verify:smoke` runs against a server that is actually serving, and
+asserts the runtime properties nothing else can: that `/admin` answers 404 to
+an anonymous caller, that the CSP nonce is present *and differs between
+requests*, that `/_next/image` still rejects a wildcard bucket at 400, that no
+private column name appears in the catalog HTML, and that `/api/health`
+discloses only a verdict to a stranger. CI runs it against the built app —
+without it, a route that 500s or middleware that stopped protecting the console
+would ship green.
+
 ## Automation
 
 - **CI** (`.github/workflows/ci.yml`) — typecheck, lint, `npm test`, the verify

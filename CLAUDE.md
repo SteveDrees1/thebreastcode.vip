@@ -72,6 +72,7 @@ npm run verify:entitlements       # scratch database only — writes and deletes
 npm run verify:exposure           # scratch database only
 npm run verify:seo                # read-only; safe against any database
 npm run build
+npm run verify:smoke              # needs a running server; read-only
 ```
 
 `verify:entitlements` and `verify:exposure` both write to and delete from the

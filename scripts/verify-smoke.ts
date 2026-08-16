@@ -1,0 +1,196 @@
+/**
+ * Runtime checks against a server that is actually serving.
+ *
+ * CI builds the app and never runs it, so a whole class of regression — a
+ * route that 500s, middleware that stopped protecting /admin, a header that
+ * silently vanished — would ship green. `npm run build` proves the code
+ * compiles, not that it works.
+ *
+ * These are the assertions that were being made by hand after every change.
+ * Written down, they run the same way every time and in CI.
+ *
+ *   npm run verify:smoke                       # against localhost:3000
+ *   npm run verify:smoke -- http://host:3601   # against anything else
+ *
+ * Read-only: every request is a GET and nothing is written. Safe against a
+ * deployed environment, though it expects a seeded catalog.
+ */
+import "./load-env";
+
+const base = (process.argv[2] ?? "http://127.0.0.1:3000").replace(/\/$/, "");
+
+let failures = 0;
+let checks = 0;
+
+function ok(name: string) {
+  checks += 1;
+  console.log(`PASS  ${name}`);
+}
+
+function fail(name: string, detail: string) {
+  checks += 1;
+  failures += 1;
+  console.error(`FAIL  ${name}\n        ${detail}`);
+}
+
+function expect(name: string, condition: boolean, detail: string) {
+  if (condition) ok(name);
+  else fail(name, detail);
+}
+
+async function get(path: string) {
+  const res = await fetch(`${base}${path}`, { redirect: "manual" });
+  return { res, body: await res.text() };
+}
+
+async function status(name: string, path: string, want: number) {
+  const { res } = await get(path);
+  expect(name, res.status === want, `${path} returned ${res.status}, wanted ${want}`);
+}
+
+async function main() {
+  console.log(`Smoke-testing ${base}\n`);
+
+  // --- Routes answer at all -------------------------------------------------
+  for (const path of ["/", "/catalog", "/bundles", "/pricing", "/terms", "/signin"]) {
+    await status(`${path} serves`, path, 200);
+  }
+  await status("sitemap.xml serves", "/sitemap.xml", 200);
+  await status("robots.txt serves", "/robots.txt", 200);
+  await status("health serves", "/api/health", 200);
+
+  // --- The 404 path actually 404s ------------------------------------------
+  // Next will happily serve a custom not-found with a 200 if a route opts into
+  // the wrong rendering mode, which makes soft-404s a real risk.
+  await status("unknown path is a real 404", "/no-such-page-here", 404);
+
+  // --- Middleware still protects the console -------------------------------
+  // An anonymous caller must not be able to tell /admin apart from nonsense.
+  await status("/admin is 404 for anonymous callers", "/admin", 404);
+  await status("/admin/products is 404 for anonymous callers", "/admin/products", 404);
+
+  // --- Security headers ----------------------------------------------------
+  {
+    const { res } = await get("/");
+    const csp = res.headers.get("content-security-policy") ?? "";
+    expect("CSP is present", csp.length > 0, "no content-security-policy header");
+    expect(
+      "CSP carries a per-request nonce",
+      /'nonce-[A-Za-z0-9+/=]+'/.test(csp),
+      `no nonce in: ${csp.slice(0, 120)}`,
+    );
+    expect(
+      "framing is denied",
+      res.headers.get("x-frame-options") === "DENY",
+      `x-frame-options: ${res.headers.get("x-frame-options")}`,
+    );
+    expect(
+      "MIME sniffing is off",
+      res.headers.get("x-content-type-options") === "nosniff",
+      `x-content-type-options: ${res.headers.get("x-content-type-options")}`,
+    );
+
+    const second = await get("/");
+    const nonceOf = (v: string) => /'nonce-([A-Za-z0-9+/=]+)'/.exec(v)?.[1];
+    expect(
+      "the nonce differs between requests",
+      nonceOf(csp) !== nonceOf(second.res.headers.get("content-security-policy") ?? ""),
+      "the same nonce was served twice — it is not per-request",
+    );
+  }
+
+  // --- The image optimizer is not an open proxy ----------------------------
+  // This shipped as a live proxy once. 400 means rejected before any fetch.
+  for (const host of ["attacker-bucket.s3.amazonaws.com", "anything.r2.dev"]) {
+    const { res } = await get(
+      `/_next/image?url=${encodeURIComponent(`https://${host}/x.png`)}&w=640&q=75`,
+    );
+    expect(
+      `image optimizer rejects ${host}`,
+      res.status === 400,
+      `got ${res.status}; anything but 400 means the server fetched it`,
+    );
+  }
+
+  // --- Nothing private reaches the HTML ------------------------------------
+  {
+    const { body } = await get("/catalog");
+    for (const marker of ["fileKey", "file_key", "sourceSha256", "stripePriceId"]) {
+      expect(
+        `/catalog does not leak ${marker}`,
+        !body.includes(marker),
+        `found "${marker}" in the catalog HTML`,
+      );
+    }
+  }
+
+  // --- SEO essentials on a product page ------------------------------------
+  {
+    const { body } = await get("/catalog");
+    const slug = /href="\/catalog\/([a-z0-9-]+)"/.exec(body)?.[1];
+    if (!slug) {
+      fail("a product page is reachable from /catalog", "no product links found — seeded?");
+    } else {
+      const { res, body: page } = await get(`/catalog/${slug}`);
+      expect(`/catalog/${slug} serves`, res.status === 200, `returned ${res.status}`);
+      expect(
+        "product page has one meta description",
+        (page.match(/<meta name="description"/g) ?? []).length === 1,
+        "expected exactly one description meta tag",
+      );
+      expect(
+        "product page has one canonical",
+        (page.match(/<link rel="canonical"/g) ?? []).length === 1,
+        "expected exactly one canonical link",
+      );
+      expect(
+        "product page has exactly one h1",
+        (page.match(/<h1[\s>]/g) ?? []).length === 1,
+        "expected exactly one h1",
+      );
+      expect(
+        "product page emits Product structured data",
+        page.includes('"@type":"Product"') || page.includes('\\"@type\\":\\"Product\\"'),
+        "no Product JSON-LD found",
+      );
+    }
+  }
+
+  // --- The sitemap matches what the catalog shows --------------------------
+  // These drifted apart once: six products listed, three in the sitemap.
+  {
+    const { body: catalog } = await get("/catalog");
+    const { body: sitemap } = await get("/sitemap.xml");
+    const listed = new Set([...catalog.matchAll(/href="\/catalog\/([a-z0-9-]+)"/g)].map((m) => m[1]));
+    const mapped = new Set([...sitemap.matchAll(/\/catalog\/([a-z0-9-]+)</g)].map((m) => m[1]));
+    const missing = [...listed].filter((s) => !mapped.has(s));
+    expect(
+      "every listed product is in the sitemap",
+      missing.length === 0,
+      `missing from sitemap: ${missing.join(", ")}`,
+    );
+  }
+
+  // --- Health endpoint discloses nothing to a stranger ----------------------
+  {
+    const { res, body } = await get("/api/health");
+    expect(
+      "health is never cached",
+      (res.headers.get("cache-control") ?? "").includes("no-store"),
+      `cache-control: ${res.headers.get("cache-control")}`,
+    );
+    expect(
+      "health tells an anonymous caller only status and time",
+      !body.includes("checks") && !body.includes("missing"),
+      `body disclosed more than a verdict: ${body.slice(0, 120)}`,
+    );
+  }
+
+  console.log(`\n${checks} checks, ${failures} failed.`);
+  process.exit(failures > 0 ? 1 : 0);
+}
+
+main().catch((error) => {
+  console.error("Smoke run could not complete:", error);
+  process.exit(1);
+});

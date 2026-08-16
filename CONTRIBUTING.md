@@ -82,6 +82,7 @@ npm run verify:entitlements   # scratch database only
 npm run verify:exposure
 npm run verify:seo            # reports thin copy; read-only
 npm run build
+npm run verify:smoke          # against a running server
 ```
 
 `verify:entitlements` and `verify:exposure` both write to and delete from the

@@ -96,6 +96,7 @@ npm run verify:entitlements   # 16 checks — scratch database only
 npm run verify:exposure       # asserts no private column reaches the storefront
 npm run verify:seo            # reports pages with no description of their own
 npm run build
+npm run verify:smoke          # against a running server: npm start, then this
 ```
 
 `verify:entitlements` exercises purchase, expiry, subscription lapse, promo
