@@ -27,7 +27,7 @@
     "drizzle-orm": "^0.38.2",
     "next": "^15.1.0",
     "next-auth": "^5.0.0-beta.25",
-    "nodemailer": "^8.0.5",
+    "nodemailer": "^9.0.5",
     "pdf-lib": "^1.17.1",
     "postgres": "^3.4.5",
     "react": "^19.0.0",
