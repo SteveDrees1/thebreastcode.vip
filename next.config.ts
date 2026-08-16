@@ -47,13 +47,40 @@ const nextConfig: NextConfig = {
         value: "max-age=63072000; includeSubDomains; preload",
       },
       {
-        // Nothing here needs these; denying them shrinks the attack surface and
-        // stops third-party scripts from asking on our behalf.
+        /*
+         * Nothing here needs these; denying them shrinks the attack surface and
+         * stops third-party scripts from asking on our behalf.
+         *
+         * `browsing-topics=()` replaces the `interest-cohort=()` that used to
+         * be here. interest-cohort was the opt-out for FLoC, which Chrome
+         * abandoned; the Topics API that replaced it reads `browsing-topics`,
+         * so the old directive is now a no-op that only looks like an opt-out.
+         * Both are listed: the obsolete one costs nothing and still covers any
+         * browser that never moved on.
+         */
         key: "Permissions-Policy",
         value:
-          "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=()",
+          "camera=(), microphone=(), geolocation=(), payment=(), usb=(), " +
+          "browsing-topics=(), interest-cohort=()",
       },
       { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+      {
+        /*
+         * Stop another origin loading our responses as a subresource — an
+         * <img>, a <script>, a fetch it never reads. COOP already isolates the
+         * browsing context; this is the other half, and without it a
+         * cross-origin page can still pull a signed download redirect or an
+         * API response into its own document.
+         *
+         * Deliberately not paired with Cross-Origin-Embedder-Policy. COEP buys
+         * cross-origin isolation, which is only worth having for
+         * SharedArrayBuffer and precise timers — neither of which this app
+         * uses — and it breaks any third-party embed added later. Skipped on
+         * purpose rather than overlooked.
+         */
+        key: "Cross-Origin-Resource-Policy",
+        value: "same-origin",
+      },
       { key: "X-DNS-Prefetch-Control", value: "on" },
     ];
 

@@ -118,6 +118,33 @@ async function main() {
       res.headers.get("x-content-type-options") === "nosniff",
       `x-content-type-options: ${res.headers.get("x-content-type-options")}`,
     );
+    expect(
+      "cross-origin resource policy is set",
+      res.headers.get("cross-origin-resource-policy") === "same-origin",
+      `cross-origin-resource-policy: ${res.headers.get("cross-origin-resource-policy")}`,
+    );
+    expect(
+      "cross-origin opener policy is set",
+      res.headers.get("cross-origin-opener-policy") === "same-origin",
+      `cross-origin-opener-policy: ${res.headers.get("cross-origin-opener-policy")}`,
+    );
+    expect(
+      "HSTS is long-lived and covers subdomains",
+      /max-age=(\d+)/.test(res.headers.get("strict-transport-security") ?? "") &&
+        Number(/max-age=(\d+)/.exec(res.headers.get("strict-transport-security") ?? "")?.[1]) >=
+          31536000,
+      `strict-transport-security: ${res.headers.get("strict-transport-security")}`,
+    );
+    expect(
+      "Topics API is opted out of, not just the dead FLoC directive",
+      (res.headers.get("permissions-policy") ?? "").includes("browsing-topics=()"),
+      `permissions-policy: ${res.headers.get("permissions-policy")}`,
+    );
+    expect(
+      "no CORS header invites a cross-origin reader",
+      res.headers.get("access-control-allow-origin") === null,
+      `access-control-allow-origin: ${res.headers.get("access-control-allow-origin")}`,
+    );
 
     const second = await get("/");
     const nonceOf = (v: string) => /'nonce-([A-Za-z0-9+/=]+)'/.exec(v)?.[1];

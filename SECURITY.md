@@ -62,6 +62,42 @@ discloses only a verdict to a stranger. CI runs it against the built app —
 without it, a route that 500s or middleware that stopped protecting the console
 would ship green.
 
+## Verified against a running server
+
+Not reasoning about the code — a real Postgres, a real build, and a local SMTP
+sink so the magic-link email is actually delivered and the link followed.
+
+**Sign-up and sign-in**
+
+| | |
+| --- | --- |
+| New address → account created | verified email set, referral code generated, `is_admin` false |
+| Magic link replayed | rejected, `error=Verification`, no session issued, token already consumed from `verification_tokens` |
+| Existing address signs in again | no duplicate account; a second session, so other devices keep working |
+| Sign-out | deletes only that session row; the other device stays signed in |
+| Replaying a signed-out cookie | treated as anonymous, and `/account` returns no email |
+| Session cookie | `HttpOnly`, `SameSite=Lax`, `Path=/`. No `Secure` over plain HTTP; Auth.js adds it and the `__Secure-` prefix on HTTPS, which is what `middleware.ts` looks for |
+
+**API surface**
+
+| Request | Result |
+| --- | --- |
+| `POST /api/checkout`, `POST /api/portal` unauthenticated | 401 |
+| `GET /api/download/<id>` unauthenticated | 307 to sign-in |
+| `POST /api/stripe/webhook` unsigned | 400 |
+| Authenticated user, product they do not own | 403 |
+| …then granted an entitlement | 302 with a signed URL |
+| Nonexistent product id | 404 |
+| Cross-origin `GET` | no `Access-Control-Allow-Origin`, so no cross-origin reader |
+| `OPTIONS` preflight | 204 with `Allow` only — the browser still blocks |
+| Cross-site form-encoded `POST` | 400: the route parses JSON, so the CSRF-able content types never reach it. `SameSite=Lax` would already withhold the cookie |
+| 34 downloads in a row | 27 allowed then 7 × 429 — exactly right, 3 of the 30 having been spent earlier |
+
+A caution for whoever repeats this: the session cookie is scoped to the host in
+the magic link. Testing against `127.0.0.1` while the cookie was issued for
+`localhost` sends no cookie at all, and every request looks anonymous — which
+reads exactly like a broken sign-out.
+
 ## Automation
 
 - **CI** (`.github/workflows/ci.yml`) — typecheck, lint, `npm test`, the verify
