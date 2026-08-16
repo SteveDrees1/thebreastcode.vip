@@ -58,6 +58,10 @@ npm run db:seed                # optional demo catalog
 npm run dev
 ```
 
+Both the app and the CLI scripts read `.env.local` first, then `.env`, and a
+variable already set in your shell beats both — so CI can inject secrets with
+no file on disk.
+
 Then make yourself an admin and open `/admin`:
 
 ```sql

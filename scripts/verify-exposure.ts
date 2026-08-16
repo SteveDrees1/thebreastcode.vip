@@ -8,7 +8,7 @@
  *
  *   npm run verify:exposure
  */
-import "dotenv/config";
+import "./load-env";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db";
 import { bundles, products } from "../src/db/schema";

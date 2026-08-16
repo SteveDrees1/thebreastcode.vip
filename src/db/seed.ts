@@ -8,7 +8,7 @@
  * real PDFs under those keys, downloads will 404 at the storage layer even
  * though the entitlement check passes.
  */
-import "dotenv/config";
+import "../../scripts/load-env";
 import { eq } from "drizzle-orm";
 import { db } from "./index";
 import { bundleItems, bundles, products, promoCodes } from "./schema";

@@ -14,7 +14,7 @@
  * fails with ERR_REQUIRE_ASYNC_MODULE. Keeping the renderer self-contained here
  * avoids flipping the whole project to "type": "module" for one script.
  */
-import "dotenv/config";
+import "./load-env";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { userInfo } from "node:os";
 import path from "node:path";

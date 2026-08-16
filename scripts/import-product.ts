@@ -28,7 +28,7 @@
  * a re-import never overwrites `priceCents` or demotes `status`: those are
  * commercial decisions owned by whoever runs the store, not by the build.
  */
-import "dotenv/config";
+import "./load-env";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { userInfo } from "node:os";

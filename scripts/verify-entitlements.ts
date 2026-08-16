@@ -7,7 +7,7 @@
  * This exists because entitlement resolution is the one piece of logic where a
  * silent bug either gives away paid content or locks out a paying customer.
  */
-import "dotenv/config";
+import "./load-env";
 import { and, eq } from "drizzle-orm";
 import { db } from "../src/db";
 import {
