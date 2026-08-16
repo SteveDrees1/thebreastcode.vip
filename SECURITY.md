@@ -29,6 +29,7 @@ A short map, so a reviewer knows which file to read:
 | Webhook authenticity | Stripe signature verified against the raw body before any parsing |
 | Download authorisation | auth → rate limit → entitlement → short-lived presigned URL |
 | JSON-LD injection | `safeJsonLd()` in `src/lib/seo.ts` |
+| Health detail disclosure | `/api/health` returns a bare verdict to anonymous callers; the per-area report needs a console session |
 
 Two properties are covered by executable checks rather than review alone:
 
@@ -146,5 +147,11 @@ These cannot be committed and have to be set by someone with admin rights:
   uncorrelatable with new ones, which is a deliberate trade, not a bug.
 - The bucket holding sellable PDFs must be private. Downloads are only ever
   served as short-lived presigned URLs minted after an entitlement check.
+- `GET /api/health` is unauthenticated by design so monitors can reach it, but
+  it answers strangers with `{status, time}` only. The subsystem breakdown is
+  gated on `getConsoleUser()`, and no variable *value* reaches the response in
+  either tier — `tests/health.test.ts` asserts the serialised report contains
+  none of them. Database errors are swallowed rather than returned, because the
+  message can carry the connection string.
 - `.env.local`, `.env` and `.env*.local` are gitignored. `.env.example` holds
   placeholders only and is the file to update when a variable is added.

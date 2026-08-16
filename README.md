@@ -541,6 +541,29 @@ production database as part of your release step.
 `AUTH_URL` and `NEXT_PUBLIC_SITE_URL` must match the public origin, or magic
 links and Stripe redirects will point at the wrong host.
 
+## Operations
+
+`GET /api/health` answers uptime monitors and post-deploy checks:
+
+| | |
+| --- | --- |
+| `200 {"status":"ok"}` | database reachable and every required variable set |
+| `503 {"status":"degraded"}` | something is wrong — point your monitor at the status code |
+
+Anonymous callers get only that verdict. Naming which subsystem is unconfigured
+would tell a stranger which part of the stack to go after, so the detail —
+per-area config report, database latency, the list of degraded areas — is
+returned only to a signed-in console user. Variable *names* appear there;
+values never do, and a test asserts it.
+
+This exists because `src/lib/env.ts` resolves lazily, which is right for builds
+(a missing Stripe key must not break a build of pages that never touch Stripe)
+but means a deploy missing `STRIPE_SECRET_KEY` boots cleanly and fails when a
+customer clicks Buy. Hit this endpoint after deploying and you find out first.
+
+Never cached, `noindex`, and not rate limited — locking out the thing that
+tells you the site is down is a poor trade, and it costs one `select 1`.
+
 ## Known limitations
 
 - **`/admin` answers 200 for a signed-in non-admin**, though the body is the 404
