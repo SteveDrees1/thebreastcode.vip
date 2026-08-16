@@ -115,7 +115,7 @@ setting and is not enabled.
 
 | Layer | Choice | Why |
 | ----- | ------ | --- |
-| Framework | Next.js 15 App Router, React 19 | Server components keep catalog pages indexable; one deploy target for pages, API routes and webhooks |
+| Framework | Next.js 16 App Router, React 19 | Server components keep catalog pages indexable; one deploy target for pages, API routes and webhooks |
 | Language | TypeScript | Types run from the database schema through to the UI |
 | Database | Postgres (Neon) | Partial indexes and `ON CONFLICT` do the work for idempotent grants |
 | ORM | Drizzle | SQL-shaped, real migrations, no query-engine binary |
@@ -565,10 +565,11 @@ links and Stripe redirects will point at the wrong host.
   indistinguishable from every other page in a search result. `npm run
   verify:seo` lists which ones — 1 of 4 on a freshly seeded catalog, more once
   you import real PDFs. Fixing it means writing copy, not code.
-- **8 high-severity advisories in Next's bundled `sharp` and `postcss`**, with
-  no patch below Next 16. Accepted with a compensating control (remote image
-  optimization is off, so nothing attacker-controlled reaches `sharp`) and
-  recorded in `SECURITY.md`.
+- **4 high-severity advisories, all one nodemailer issue** counted through
+  `@auth/core`, `next-auth` and `@auth/drizzle-adapter`. Auth.js declares
+  `nodemailer: "^7.0.7 || ^8.0.5"`, so the patched 9.x installs as an invalid
+  peer on the sign-in path. The vector is the `raw` message option, which this
+  app never uses. Recorded in `SECURITY.md` with what retires it.
 
 ## Not built yet
 

@@ -60,6 +60,14 @@ updates:
       # semver-major on these does nothing: Dependabot proposed drizzle-orm
       # 0.38 -> 0.45 (seven minors, the whole data layer) and semver-major
       # never fired. Patches still flow.
+      #
+      # A caution learned the hard way on that exact PR: it was closed as a
+      # routine version bump, and it was actually fixing a SQL injection
+      # advisory (drizzle-orm < 0.45.2). Read what a dependency PR fixes before
+      # closing it. Gating a package here schedules the work; it does not make
+      # the work optional. Dependabot *security* updates bypass this list, but
+      # only if security updates are enabled for the repository — that is a
+      # setting, not something this file can turn on.
       - dependency-name: drizzle-orm
         update-types: [version-update:semver-minor, version-update:semver-major]
       - dependency-name: drizzle-kit

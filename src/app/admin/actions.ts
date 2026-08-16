@@ -1,7 +1,7 @@
 "use server";
 
 import { and, eq, not, sql } from "drizzle-orm";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -33,9 +33,23 @@ async function authorize(scope: string) {
   return admin;
 }
 
-/** Published catalog data is cached; every write has to drop that cache. */
+/**
+ * Published catalog data is cached; every write has to drop that cache.
+ *
+ * `updateTag`, not `revalidateTag`. Next 16 split what was one function into
+ * two, and picking the wrong half is a silent regression rather than an error:
+ * `revalidateTag(tag, profile)` now schedules expiry against a cacheLife
+ * profile, while `updateTag` is the one that expires immediately and gives
+ * read-your-own-writes inside a Server Action.
+ *
+ * Read-your-own-writes is exactly what the console needs. An admin who edits a
+ * price and lands back on the list must see the new price, not the old one
+ * until some profile lapses. Every caller of this function is a server action
+ * in this "use server" module, which is also the only place `updateTag` may be
+ * called from.
+ */
 function refreshCatalog() {
-  revalidateTag(CATALOG_TAG);
+  updateTag(CATALOG_TAG);
   revalidatePath("/", "layout");
 }
 

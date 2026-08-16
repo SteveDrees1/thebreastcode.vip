@@ -70,20 +70,47 @@ An exception is a risk we have accepted for a stated reason, with a
 compensating control and something specific that retires it. It is not a
 permanent excuse.
 
-### Next.js 15.5.23 bundles sharp 0.34.5 and a vulnerable postcss
+### nodemailer's `raw` option — arbitrary file read and SSRF
 
-- **Advisories:** GHSA-f88m-g3jw-g9cj (4 libvips CVEs in sharp < 0.35.0), plus
-  three postcss `sourceMappingURL` advisories. 8 high, 0 critical.
-- **Why not simply upgraded:** 15.5.23 is the newest 15.x — it carries the
-  `backport` dist-tag — so there is no patch below Next 16.3.1. A major App
-  Router upgrade is its own branch, not a line in a security pass.
-- **Compensating control:** `next.config.ts` sets `images.remotePatterns: []`,
-  so `/_next/image` rejects every remote URL at 400 before any fetch. Nothing
-  attacker-controlled reaches sharp. The postcss advisories are build-time and
-  need attacker-controlled CSS, which would already mean repository write
-  access. Verified against a production build, not assumed.
-- **Retires when:** the Next 16 upgrade lands. At that point raise the CI gate
-  in `ci.yml` from `--audit-level=critical` back to `high`.
+- **Advisory:** message-level `raw` bypasses `disableFileAccess` /
+  `disableUrlAccess`. Affects `nodemailer <= 9.0.0`. Reported as 4 high, but
+  that is one advisory counted four times: `nodemailer` itself plus
+  `@auth/core`, `next-auth` and `@auth/drizzle-adapter`, which only appear
+  because they depend on it.
+- **Why not simply upgraded:** `next-auth@5.0.0-beta.32` and `@auth/core@0.41.3`
+  both declare `nodemailer: "^7.0.7 || ^8.0.5"`. Installing 9.0.5 was tried and
+  npm marks it `invalid` against that range — an unsupported combination on the
+  only path anyone signs in by. The alternative npm suggests is `next-auth`
+  4.24.7, which is a downgrade off the v5 API this app is written against.
+- **Compensating control:** the vector is the `raw` message option, and nothing
+  here constructs a raw message — Auth.js sends a templated magic link, and
+  `grep -rn "raw:" src/` is empty. An attacker would need to control the
+  message options passed to the transport, which no route exposes.
+- **Retires when:** Auth.js widens its nodemailer range to include ^9, or
+  reaches a stable v5. At that point upgrade and raise the CI gate in `ci.yml`
+  from `--audit-level=critical` to `high`.
+
+### Retired: Next.js 15's bundled sharp and postcss
+
+Kept as a record of an exception that closed rather than lingered. Next 15.5.23
+bundled `sharp` 0.34.5 (4 libvips CVEs) and a vulnerable `postcss`, with no
+patch below Next 16.3.1. The Next 16 upgrade landed and removed all of them.
+The compensating control at the time — `images.remotePatterns: []` — stays in
+place on its own merits, because it also closes the open image proxy described
+below.
+
+### Retired: drizzle-orm SQL injection
+
+`drizzle-orm < 0.45.2` carried a SQL injection via improperly escaped SQL
+identifiers. Fixed by upgrading to 0.45.2.
+
+Worth recording *how* it was nearly missed. Dependabot opened the upgrade as
+PR #12, and it was closed as a routine seven-minor version bump on a pre-1.0
+package without checking whether it carried an advisory. It only resurfaced
+because the Next 16 upgrade cleared the sharp noise that had been burying it in
+`npm audit` output. Read what a dependency PR actually fixes before closing it;
+"pre-1.0 minors need a deliberate branch" is a reason to schedule the work, not
+a reason to assume it is cosmetic.
 
 ### The image optimizer was an open proxy until it was closed
 

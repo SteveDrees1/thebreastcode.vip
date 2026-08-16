@@ -97,18 +97,17 @@ jobs:
 
       # Blocks on a critical advisory in code that ships.
       #
-      # This is deliberately set at critical, not high, and the reason is
-      # written down rather than left as a lowered bar: the tree currently
-      # carries 8 high advisories, all of them Next 15.5.23's bundled sharp
-      # 0.34.5 and postcss. 15.5.23 is the newest 15.x — it holds the
-      # `backport` dist-tag — so no patch exists short of Next 16. Gating at
-      # high would make every PR red on day one for an issue nobody can fix in
-      # that PR, which is how a red build becomes background noise.
+      # Still critical rather than high, but for a smaller reason than before.
+      # The Next 16 upgrade cleared the sharp and postcss advisories, and
+      # drizzle-orm 0.45.2 cleared a SQL injection. What remains is 4 high,
+      # which is one nodemailer advisory counted four times through
+      # @auth/core, next-auth and @auth/drizzle-adapter.
       #
-      # The compensating control is in next.config.ts: remote image
-      # optimization is off, so attacker-controlled bytes cannot reach the
-      # vulnerable sharp. SECURITY.md records the exception and what retires
-      # it. Revisit when the Next 16 upgrade lands and raise this to high.
+      # It cannot be fixed here: next-auth 5.0.0-beta.32 declares
+      # nodemailer "^7.0.7 || ^8.0.5", so 9.0.5 installs as an invalid peer on
+      # the only path anyone signs in by. The vector is the `raw` message
+      # option, which this app never uses. SECURITY.md records it and what
+      # retires it — raise this to high when Auth.js accepts nodemailer 9.
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=critical
 

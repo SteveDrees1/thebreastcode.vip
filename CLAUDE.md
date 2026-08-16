@@ -13,7 +13,7 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
   the brand name is deliberately different — see `BRAND.md`).
 - **Purpose:** a storefront for selling PDF guides. One catalog covering
   one-off purchases, bundles, subscriptions, promo codes and referral credits.
-- **Stack:** Next.js 15 App Router, React 19, TypeScript, Drizzle ORM over
+- **Stack:** Next.js 16 App Router, React 19, TypeScript, Drizzle ORM over
   Postgres, Stripe (Checkout + Stripe Tax + subscriptions), Auth.js v5 with
   emailed magic links, Tailwind v4.
 - **Deployment target:** Vercel with Neon Postgres.
@@ -128,9 +128,10 @@ Worth raising once, not fixing unprompted:
   `verify:*` scripts cover entitlements, field exposure and SEO metadata
   against a real database — but nothing drives a real browser, and no test
   exercises Stripe or an actual S3 bucket.
-- 8 high-severity advisories in Next 15.5.23's bundled `sharp` and `postcss`,
-  accepted with a compensating control — see the exception register in
-  `SECURITY.md`. Retired by the Next 16 upgrade, which is not done.
+- 4 high-severity advisories, all one nodemailer issue counted through
+  `@auth/core`, `next-auth` and `@auth/drizzle-adapter`. Cannot be fixed
+  without breaking Auth.js's declared peer range; the vector (`raw` messages)
+  is unused here. See the exception register in `SECURITY.md`.
 - The S3 `PutObject` upload path has never been exercised against real
   credentials; seeded `fileKey` values point at objects that do not exist, so
   downloads 404 at the storage layer even though the entitlement check passes.
