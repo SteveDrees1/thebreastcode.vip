@@ -2,113 +2,130 @@
 
 Guidance for Claude Code (and other AI assistants) working in this repository.
 
-## Current state of the repository
-
-**This repository is empty.** As of the latest commit it contains exactly two files:
-
-```
-.
-├── README.md    # one line: "# thebreastcode.vip"
-└── CLAUDE.md    # this file
-```
-
-- History: a single commit (`9df7961`, "Initial commit", 2026-03-07).
-- Branches on the remote: `main` only.
-- No source code, no build tooling, no package manifest, no CI config, no tests,
-  no dependency lockfile, no license.
-
-There is therefore **no codebase structure, no build/test/lint workflow, and no
-established code conventions to document yet**. The sections below are
-deliberately left as unanswered questions rather than filled in with guesses.
-
-Do not infer a tech stack from the repository name. Nothing in the repo
-establishes what `thebreastcode.vip` is meant to be — the `.vip` domain name
-suggests a website, but that is an assumption, not a documented fact. Ask the
-user what they intend to build before scaffolding anything.
-
-## Before you start work here
-
-Because the repository is a blank slate, the usual "read the surrounding code and
-match it" instruction has nothing to match against. Two consequences:
-
-1. **Any first substantive change is a foundational decision** — language,
-   framework, package manager, directory layout, formatting. These are the
-   user's calls, not defaults to be quietly picked. If the request doesn't
-   specify them and different choices would lead to materially different work,
-   ask.
-2. **Re-read this file's assumptions against reality.** This document was
-   written when the repo was empty. If you are reading it and `git ls-files`
-   shows real source files, the sections below are stale — update them as part
-   of your change rather than working from them.
-
-Quick check to see whether this file is still accurate:
-
-```bash
-git ls-files          # if this shows more than README.md and CLAUDE.md, update this file
-git log --oneline -5
-```
+> An earlier version of this file said the repository was empty. It was written
+> against the initial commit and merged after the application already existed.
+> Everything below is written against the current tree and was verified by
+> running the commands, not copied from framework docs.
 
 ## Project overview
 
-- **Name:** thebreastcode.vip
-- **Owner:** SteveDrees1 (GitHub) — commits authored by Steve Drees
-- **Purpose:** not yet documented in the repository.
-- **Target runtime / deployment:** not yet documented.
-
-When the purpose is established, replace this section with a real description of
-what the project does and who it serves.
+- **Name:** Datum Press (`thebreastcode.vip` is the domain the repo is named for;
+  the brand name is deliberately different — see `BRAND.md`).
+- **Purpose:** a storefront for selling PDF guides. One catalog covering
+  one-off purchases, bundles, subscriptions, promo codes and referral credits.
+- **Stack:** Next.js 15 App Router, React 19, TypeScript, Drizzle ORM over
+  Postgres, Stripe (Checkout + Stripe Tax + subscriptions), Auth.js v5 with
+  emailed magic links, Tailwind v4.
+- **Deployment target:** Vercel with Neon Postgres.
 
 ## Codebase structure
 
-Not yet applicable — see "Current state" above.
+```
+src/
+├── app/          # App Router: routes, server actions, /admin console
+├── components/   # shared UI
+├── db/           # schema.ts, index.ts (connection), seed.ts
+├── lib/          # the business logic — start here
+├── auth.ts       # Auth.js config; the session callback shapes what clients see
+└── middleware.ts # per-request CSP nonce, and the /admin 404 for anonymous callers
+scripts/          # CLI tools: import a product, generate covers, run verifications
+drizzle/          # generated SQL migrations — never hand-edit an applied one
+```
 
-Once code exists, this section should describe the top-level directories, where
-the entry point lives, and where the interesting logic sits, so an assistant can
-orient without a full-tree search.
+The pieces worth understanding before changing anything:
+
+- **`src/lib/entitlements.ts`** is the only module that answers "may this user
+  read this PDF?". Access comes either from a live `entitlements` row or from an
+  active subscription resolved *live* against `products.includedInSubscription`.
+  That resolution is deliberately not materialised, so newly published PDFs are
+  covered immediately and a lapsed subscription revokes immediately. Route new
+  sales paths through `grantEntitlement()` rather than adding a second notion of
+  access.
+- **`src/lib/catalog.ts`** defines `publicProductColumns`, the projection that
+  keeps private columns (`fileKey`, `sourceSha256`, `stripePriceId`) out of
+  anything client-bound. It ends in `satisfies Record<keyof PublicProduct,
+  unknown>` — that keyword is load-bearing. Plain assignability catches nothing
+  here; `satisfies` is what makes adding a private column back a compile error.
+- **`src/lib/admin.ts`** has three gates and they are not interchangeable:
+  `requireConsole()` (admin or auditor, for pages), `requireAdmin()` (admin
+  only, for pages), `getAdmin()` (admin only, for server actions). Every server
+  action is its own POST endpoint and does not inherit a layout's protection, so
+  each mutation must authorise on its own.
 
 ## Development workflow
 
-No tooling is configured. There is nothing to install, build, run, or test.
+```bash
+npm install
+cp .env.example .env.local        # both the app and the CLI scripts read this
+npm run db:generate && npm run db:migrate
+npm run db:seed                   # optional demo catalog
+npm run dev
+```
 
-Once tooling exists, record the exact commands here, e.g. install, dev server,
-build, test (full run and single-file run), lint, and format. Prefer commands
-verified by actually running them over commands copied from a framework's docs.
+Checks, all of which should pass before pushing:
+
+```bash
+npm run typecheck
+npm run lint
+npm run verify:entitlements       # scratch database only — writes and deletes
+npm run verify:exposure           # scratch database only
+npm run build
+```
+
+`verify:entitlements` and `verify:exposure` both write to and delete from the
+database. Never point them at production.
+
+Environment precedence is `.env.local`, then `.env`, then anything already
+exported — exported wins, which is how CI injects secrets with no file on disk.
+`scripts/load-env.ts` implements this; import it rather than `dotenv/config`,
+which reads only `.env`.
 
 ## Conventions
 
-None established. Once code exists, document only the conventions that are
-actually observable in the codebase — naming, file layout, error handling,
-typing strictness, comment density, import ordering — and skip anything that is
-merely a general best practice.
+Observable in the code, not general advice:
+
+- Comments explain *why*, and say what was verified rather than implied. Several
+  comments in `src/` document a trade-off or a limitation that is still live —
+  treat those as load-bearing and update them when the trade-off changes.
+- Known limitations are stated plainly in `README.md` rather than omitted.
+- Server actions authorise individually; never rely on a parent layout.
+- Schema columns carry both a Drizzle `$defaultFn` and a SQL `DEFAULT`, so raw
+  SQL inserts work as well as ORM inserts.
+- Brand strings live only in `src/lib/brand.ts`. Do not hardcode the name,
+  tagline or palette anywhere else; `next/og` images duplicate the palette there
+  because they cannot read CSS variables.
+- JSON-LD goes through `safeJsonLd()` in `src/lib/seo.ts`, which escapes `<`,
+  `>`, `&` and U+2028/9. `JSON.stringify` alone is an XSS here — that was a real
+  bug, not a hypothetical.
 
 ## Git workflow
 
-- The default branch is `main`.
-- Work on a feature branch and push with `git push -u origin <branch-name>`.
-  Automated sessions are assigned a branch (typically `claude/<topic>-<id>`) and
-  must push only to that branch.
-- Commit messages in this repo so far are short and imperative
-  ("Initial commit"). One commit is not a strong convention; follow standard
-  practice (concise imperative subject, body when the change needs explanation)
-  unless the user asks for something specific such as Conventional Commits.
+- Default branch is `main`.
+- One branch per completed unit of work, named `{type}/{short-description}/{status}`.
+  See `CONTRIBUTING.md`, which also explains why the bracketed-with-spaces form
+  is not usable (`git check-ref-format` rejects both spaces and `[`).
+- `./scripts/new-branch.sh <type> "<description>" [status]` cuts a valid one.
+- Commit subjects are `type: imperative summary`; bodies explain the reasoning
+  and name what was verified.
+- Automated sessions are assigned a branch and must push only to it.
 - Do not open a pull request unless the user explicitly asks for one.
-- There is no PR template, no CODEOWNERS, and no branch protection configured.
+- No PR template, no CODEOWNERS, no branch protection, no CI configured.
 
-## Things that are absent and may be worth raising
+## Outstanding gaps
 
-If the user starts building here, these gaps are likely to matter and are worth
-mentioning once (not repeatedly, and not fixed unprompted):
+Worth raising once, not fixing unprompted:
 
-- No `LICENSE` — the project is "all rights reserved" by default.
-- No `.gitignore` — dependency directories and build output will be committed
-  accidentally the moment a toolchain is added.
-- No CI configuration.
-- `README.md` is a bare title with no description, setup steps, or usage.
+- No `LICENSE` — all rights reserved by default.
+- No CI, so the checks above run only when someone runs them.
+- No automated test suite beyond the two `verify:*` scripts, which cover
+  entitlements and field exposure but nothing else.
+- The S3 `PutObject` upload path has never been exercised against real
+  credentials; seeded `fileKey` values point at objects that do not exist, so
+  downloads 404 at the storage layer even though the entitlement check passes.
 
 ## Maintaining this file
 
-Update this file in the same change that invalidates it — when the stack is
-chosen, when build/test commands appear, when a directory layout settles. The
-value of this document is that it is accurate; a CLAUDE.md describing a project
-that does not exist is worse than none. Keep it factual about what is in the
-repo, and mark inferences as inferences.
+Update it in the same change that invalidates it. The value of this document is
+that it is accurate; a CLAUDE.md describing a repository that does not exist is
+worse than none. Keep it factual about what is in the repo, and mark inferences
+as inferences.
