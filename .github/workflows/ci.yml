@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The default GITHUB_TOKEN is read-write. Nothing here writes to the repo, and
+# a token scoped down is a token a compromised dependency cannot use.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    # verify:entitlements and verify:exposure write to and delete from the
+    # database, so they need a real one. A service container is disposable,
+    # which is the only kind of database they may ever point at.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tbc_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tbc_ci
+      # Not a secret: a throwaway value so modules that read it at import time
+      # resolve. Real secrets are never needed to typecheck, lint or build.
+      AUTH_SECRET: ci-placeholder-not-a-real-secret
+      AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+      - run: npm run lint
+
+      - name: Apply migrations
+        run: npm run db:migrate
+
+      # verify:entitlements exits 1 with "Need at least 2 published products"
+      # against an empty database — it needs a catalog to grant and revoke
+      # against. Confirmed by running this exact sequence on a fresh database.
+      - name: Seed the catalog
+        run: npm run db:seed
+
+      - name: Entitlement rules
+        run: npm run verify:entitlements
+
+      - name: Private-field exposure
+        run: npm run verify:exposure
+
+      - run: npm run build
+
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Blocks on a critical advisory in code that ships.
+      #
+      # This is deliberately set at critical, not high, and the reason is
+      # written down rather than left as a lowered bar: the tree currently
+      # carries 8 high advisories, all of them Next 15.5.23's bundled sharp
+      # 0.34.5 and postcss. 15.5.23 is the newest 15.x — it holds the
+      # `backport` dist-tag — so no patch exists short of Next 16. Gating at
+      # high would make every PR red on day one for an issue nobody can fix in
+      # that PR, which is how a red build becomes background noise.
+      #
+      # The compensating control is in next.config.ts: remote image
+      # optimization is off, so attacker-controlled bytes cannot reach the
+      # vulnerable sharp. SECURITY.md records the exception and what retires
+      # it. Revisit when the Next 16 upgrade lands and raise this to high.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=critical
+
+      # Report-only, including dev dependencies: visible in the log without
+      # failing the job, so a new advisory is noticed even while the known
+      # exception stands.
+      - name: Audit all dependencies (report only)
+        run: npm audit || true

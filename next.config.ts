@@ -1,12 +1,31 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Product cover images live in the public bucket; everything else is inlined.
+  /*
+   * No remote hosts are optimizable, on purpose.
+   *
+   * These patterns used to be `**.r2.dev` and `**.amazonaws.com`. A wildcard at
+   * that level is every bucket on those providers, not ours — and /_next/image
+   * ships enabled whether or not the app imports next/image, so the endpoint
+   * was a live open proxy. Verified against the production build: a host
+   * outside the list is rejected at 400 before any fetch, while
+   * `attacker-bucket.s3.amazonaws.com` returned 403 relayed from upstream —
+   * proof the server had already made the outbound request.
+   *
+   * Two things made that worse than an ordinary SSRF. The fetched bytes are
+   * handed to Next's bundled sharp, pinned at 0.34.5, which carries four high
+   * severity libvips CVEs (GHSA-f88m-g3jw-g9cj) fixed only in 0.35.0+. And
+   * nothing needed the patterns: covers render as plain <img> (see
+   * product-card.tsx) because they arrive pre-sized from the bucket, so
+   * next/image is imported nowhere in src/.
+   *
+   * With the list empty the optimizer rejects every remote URL at 400, which
+   * puts attacker-controlled bytes out of reach of the vulnerable sharp. If you
+   * later adopt next/image, add the one exact bucket hostname here — never a
+   * wildcard that spans a provider's whole domain.
+   */
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "**.r2.dev" },
-      { protocol: "https", hostname: "**.amazonaws.com" },
-    ],
+    remotePatterns: [],
   },
   // Trim the server fingerprint; it only helps someone targeting a known stack.
   poweredByHeader: false,

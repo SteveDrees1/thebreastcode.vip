@@ -1,0 +1,38 @@
+version: 2
+
+# Why this exists: the sharp/postcss advisories that prompted this file sat in
+# the tree unnoticed because nothing was watching. `npm audit` only reports when
+# a human remembers to run it.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Security fixes are what matter here; a flood of routine version bumps is
+    # how people learn to ignore the bot. Group the noisy ones into one PR and
+    # let genuine advisories arrive on their own.
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+      production-patches:
+        dependency-type: production
+        update-types: [patch]
+    ignore:
+      # Next major upgrades change App Router behaviour and need a deliberate
+      # branch with the full check suite run against it, not an automated PR.
+      - dependency-name: next
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+
+  # Actions are a supply-chain surface of their own: a compromised third-party
+  # action runs with whatever the workflow's token can do.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore"
