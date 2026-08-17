@@ -318,17 +318,38 @@ differently. `prefers-reduced-motion` disables all of it.
 
 ## Performance
 
-- Catalog reads go through `unstable_cache` (`src/lib/catalog.ts`), so a page
-  view costs a React render and no database round trip.
-- Pages that show who is signed in are rendered per request. A route that reads
-  the session cookie **cannot** also be prerendered — declaring
-  `generateStaticParams` next to an `auth()` call is what produces
-  `DYNAMIC_SERVER_USAGE`. Speed comes from caching the data, not the HTML.
-- Static assets are served `immutable`; account pages and download redirects are
-  `private, no-store` so no shared proxy can hand one customer another's link.
+Measured against a production build, and held there by `verify:smoke`:
 
-Measured on the catalog page against a local build: TTFB 20 ms, DOMContentLoaded
-88 ms, 106 KB of JS, 182 DOM nodes, no console errors.
+| | measured | budget |
+| --- | --- | --- |
+| `/` HTML | 8.1 KB gzipped | 25 KB |
+| `/catalog` HTML | 7.2 KB gzipped | 25 KB |
+| First-load JS | 178 KB gzipped, 9 chunks | 350 KB |
+| TTFB (local, warm) | 15–25 ms | — |
+
+The JS is essentially React 19 plus the Next App Router runtime — no server
+library reaches the client, which the smoke test also checks by name. Fonts are
+self-hosted through `next/font`, `display: swap`, latin subset only. Hashed
+assets are `immutable`; covers get an hour fresh plus a day of
+stale-while-revalidate because they are keyed by slug, not content hash. Account
+pages and download redirects are `private, no-store`, so no shared proxy can
+hand one customer another's signed link.
+
+Budgets are roughly double what was measured. A budget tight enough to fail on
+noise is a budget somebody disables.
+
+**Every route is server-rendered on demand.** The root layout calls `auth()` to
+decide whether the header says Sign in or Sign out, and reading a cookie opts
+the whole route out of static rendering. The data underneath is cached
+(`unstable_cache` + tag invalidation), so a request costs a render and no
+database round trip.
+
+Making the public catalog statically cacheable means Next's `cacheComponents`,
+which was tried and is **not** a config flag away: it rejects
+`export const dynamic`, which 18 routes rely on, so adopting it is a
+restructure of the console, the API routes and checkout around `"use cache"`
+and `<Suspense>` — and it is still experimental. Worth doing when it
+stabilises; not worth doing blind on a payments path.
 
 ## SEO and discoverability
 

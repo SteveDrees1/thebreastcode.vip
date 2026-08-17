@@ -265,6 +265,80 @@ async function main() {
     }
   }
 
+  // --- Performance budget ---------------------------------------------------
+  /*
+   * Budgets, not aspirations. Each ceiling is roughly double what was measured
+   * when this was written, so ordinary growth passes and a regression that
+   * doubles a payload does not. Measured then: ~10KB gzipped HTML, ~180KB of
+   * JS, TTFB in the 15-25ms range locally.
+   *
+   * Deliberately generous. A budget tight enough to fail on noise is a budget
+   * somebody disables.
+   */
+  {
+    /*
+     * Compress locally rather than trusting the transfer size.
+     *
+     * Node's fetch decompresses transparently, so `arrayBuffer().byteLength`
+     * is the *decompressed* size — measuring that against a compressed budget
+     * is how this check first failed, on numbers that were fine. Gzipping the
+     * body here measures the same thing a CDN would send, and does not depend
+     * on whether the origin happened to compress this particular response.
+     */
+    const { gzipSync } = await import("node:zlib");
+    const gz = async (path: string) => {
+      const res = await fetch(`${base}${path}`, { redirect: "manual" });
+      const raw = Buffer.from(await res.arrayBuffer());
+      return { res, bytes: gzipSync(raw).byteLength, raw: raw.byteLength };
+    };
+
+    for (const path of ["/", "/catalog"]) {
+      const { res, bytes, raw } = await gz(path);
+      expect(
+        `${path} is served compressed`,
+        (res.headers.get("content-encoding") ?? "").includes("gzip"),
+        `content-encoding: ${res.headers.get("content-encoding")} — uncompressed HTML is the cheapest win there is`,
+      );
+      expect(
+        `${path} HTML stays under 25KB gzipped`,
+        bytes < 25_000,
+        `${path} was ${bytes} bytes gzipped (${raw} raw)`,
+      );
+    }
+
+    // Every script the document pulls in, which is what actually blocks
+    // interaction. React and Next are most of it; the ceiling leaves room to
+    // grow without leaving room to ship a charting library by accident.
+    const { body: home } = await get("/");
+    const scripts = [...new Set(home.match(/\/_next\/static\/chunks\/[^"']+\.js/g) ?? [])];
+    let js = 0;
+    for (const src of scripts) js += (await gz(src)).bytes;
+    expect(
+      "first-load JS stays under 350KB compressed",
+      js < 350_000,
+      `${scripts.length} chunks totalling ${js} bytes gzipped`,
+    );
+
+    // Hashed filenames can be cached forever; not doing so makes every repeat
+    // visit pay for bytes that cannot have changed.
+    if (scripts[0]) {
+      const { res } = await gz(scripts[0]);
+      const cc = res.headers.get("cache-control") ?? "";
+      expect(
+        "hashed static assets are immutable",
+        cc.includes("immutable") && cc.includes("max-age=31536000"),
+        `cache-control on a hashed chunk: ${cc}`,
+      );
+    }
+
+    // The checkout redirect is the one third-party navigation in the app.
+    expect(
+      "the connection to Stripe Checkout is warmed",
+      home.includes('rel="preconnect"') && home.includes("checkout.stripe.com"),
+      "no preconnect to checkout.stripe.com — the buyer pays DNS+TLS at the moment they decide to pay",
+    );
+  }
+
   // --- Health endpoint discloses nothing to a stranger ----------------------
   {
     const { res, body } = await get("/api/health");

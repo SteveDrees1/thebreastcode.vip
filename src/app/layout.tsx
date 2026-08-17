@@ -65,6 +65,23 @@ export default async function RootLayout({
       lang="en"
       className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
     >
+      <head>
+        {/*
+         * Warm the connection to Stripe Checkout.
+         *
+         * Buying is a full redirect to checkout.stripe.com, so the customer
+         * pays for a DNS lookup, a TCP handshake and a TLS negotiation at the
+         * exact moment they have decided to spend money. `preconnect` does all
+         * three while they are still reading the page.
+         *
+         * Only these two hosts, and only because the app genuinely navigates
+         * to them — a speculative preconnect to somewhere unused costs a
+         * connection and returns nothing. No script is loaded from Stripe, so
+         * the CSP does not change.
+         */}
+        <link rel="preconnect" href="https://checkout.stripe.com" />
+        <link rel="preconnect" href="https://billing.stripe.com" />
+      </head>
       <body className="flex min-h-screen flex-col">
         {/* Publisher and site identity, emitted once rather than per page. */}
         <script
