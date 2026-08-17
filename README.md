@@ -400,10 +400,33 @@ worth knowing if you change a title in psql and wonder why the card is stale.
 
 ## Accessibility
 
-Skip link as the first tab stop, one `h1` per page with no skipped levels,
-landmark regions, `:focus-visible` rings in a colour that stays legible against
-both the ground and the copper accents, labelled controls, and `role="alert"` on
-error text.
+Audited against WCAG 2.2 AA, and the contrast figures are computed rather than
+eyeballed:
+
+| | |
+| --- | --- |
+| Landmarks | `lang`, skip link, `<main>`, one `h1` per page, labelled `<nav>` — checked on `/`, `/catalog`, `/signin`, `/terms` |
+| Headings | no skipped levels on any audited page |
+| Forms | every input labelled; no button without an accessible name |
+| Focus | `:focus-visible` ring, and a skip link that is off-screen until focused |
+| Motion | animations sit behind `prefers-reduced-motion: no-preference` |
+| Target size | buttons are ~37 px tall, above the 24 px floor of WCAG 2.2 SC 2.5.8 |
+| Contrast | every text colour ≥ 4.5:1 on every background it is used on |
+
+Two things were fixed rather than found compliant. `--color-faint` measured
+3.77:1 on `--color-surface-2` — below the 4.5:1 AA floor for normal text, and
+all nine of its usages were `text-sm` or `text-xs`, so none qualified for the
+3:1 large-text allowance. It is now 4.97:1 at its worst, still comfortably
+dimmer than `--color-muted` so the hierarchy is intact. And there was no
+`forced-colors` support at all, so Windows High Contrast Mode flattened the
+button backgrounds and the focus ring's fixed cyan; a `@media (forced-colors:
+active)` block now pins focus to `Highlight` and gives buttons, panels and
+rules real borders.
+
+Error text carries `role="alert"`, so a failed form announces itself rather
+than changing silently.
+
+Not covered: no screen-reader pass, and no automated axe run in CI.
 
 ## The console (`/admin`)
 

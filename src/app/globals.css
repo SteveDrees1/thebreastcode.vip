@@ -22,7 +22,13 @@
   /* Type */
   --color-text: #e9ecf1;
   --color-muted: #98a1b1;
-  --color-faint: #6b7484;
+  /* 4.97:1 on --color-surface-2, the darkest background it appears on. The
+     previous #6b7484 measured 3.77:1 there and 4.25:1 on --color-void, which
+     is below the 4.5:1 WCAG AA floor for normal text — and every one of its
+     nine usages pairs it with text-sm or text-xs, so none of them qualified
+     for the 3:1 large-text allowance. Still well under --color-muted (6.82:1),
+     so the three-step text hierarchy survives. */
+  --color-faint: #7f8898;
 
   /* Accents — copper is the product's own accent; cyan is used sparingly for
      live/interactive signal so the two never compete. */
@@ -399,4 +405,49 @@ body::after {
 .impact {
   transform-origin: 116px 100px;
   animation: impact-flash 2.8s ease-out infinite;
+}
+
+/* ── Forced colours (Windows High Contrast) ────────────────────────────────
+ *
+ * In forced-colors mode the browser replaces the palette wholesale. Most of
+ * this design survives that, but three things do not, and each one removes a
+ * boundary a sighted keyboard user relies on:
+ *
+ *   1. The focus ring is a fixed cyan. Forced colours override the colour but
+ *      not the intent, so it is pinned to the system Highlight colour instead
+ *      of a brand value that may end up invisible.
+ *   2. Buttons are distinguished by background alone, and backgrounds are
+ *      flattened. Without a border they stop looking like controls.
+ *   3. Panels and rules are hairline borders in a near-black; they need to
+ *      resolve to a system colour rather than disappear.
+ *
+ * `forced-colors` is the current media query — `-ms-high-contrast` is the
+ * deprecated predecessor and is deliberately not used.
+ */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .btn,
+  .panel,
+  .field {
+    border: 1px solid ButtonBorder;
+  }
+
+  .btn-primary {
+    /* Keeps the primary action distinguishable from a ghost button, which
+       otherwise looks identical once backgrounds are flattened. */
+    border-width: 2px;
+  }
+
+  .rule,
+  hr {
+    border-color: CanvasText;
+  }
+
+  .skip-link {
+    border: 2px solid Highlight;
+  }
 }
