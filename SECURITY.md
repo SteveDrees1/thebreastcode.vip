@@ -101,7 +101,8 @@ reads exactly like a broken sign-out.
 ## Automation
 
 - **CI** (`.github/workflows/ci.yml`) — typecheck, lint, `npm test`, the verify
-  suites against a disposable Postgres service container, build, and
+  suites against a disposable Postgres service container, build, a runtime
+  smoke test and an accessibility audit against the started server, and
   `npm audit`.
 - **CodeQL** (`.github/workflows/codeql.yml`) — `security-extended` on every
   push and PR to `main`, plus weekly so new queries reach existing code.

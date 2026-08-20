@@ -97,8 +97,13 @@ npm run verify:exposure       # asserts no private column reaches the storefront
 npm run verify:seo            # reports pages with no description of their own
 npm run build
 npm run verify:smoke          # against a running server: npm start, then this
+npm run verify:a11y           # same running server; needs Chromium
 npm run verify:legal          # unfilled legal placeholders; --strict before launch
 ```
+
+`verify:a11y` drives a real browser. Install it once with `npx playwright
+install --with-deps chromium`, or point `PLAYWRIGHT_CHROMIUM_EXECUTABLE` at a
+binary an image already has.
 
 `verify:entitlements` exercises purchase, expiry, subscription lapse, promo
 caps, webhook-replay idempotency and refund revocation against a real database.
@@ -411,22 +416,44 @@ eyeballed:
 | Focus | `:focus-visible` ring, and a skip link that is off-screen until focused |
 | Motion | animations sit behind `prefers-reduced-motion: no-preference` |
 | Target size | buttons are ~37 px tall, above the 24 px floor of WCAG 2.2 SC 2.5.8 |
-| Contrast | every text colour ≥ 4.5:1 on every background it is used on |
+| Contrast | every text colour ≥ 4.5:1 on every background it is used on; control borders and the focus ring ≥ 3:1 (SC 1.4.11) |
+| Automated | axe (WCAG 2.2 AA tags) over every anonymous page at two viewports, plus a computed contrast test — both in CI |
 
-Two things were fixed rather than found compliant. `--color-faint` measured
-3.77:1 on `--color-surface-2` — below the 4.5:1 AA floor for normal text, and
-all nine of its usages were `text-sm` or `text-xs`, so none qualified for the
-3:1 large-text allowance. It is now 4.97:1 at its worst, still comfortably
-dimmer than `--color-muted` so the hierarchy is intact. And there was no
-`forced-colors` support at all, so Windows High Contrast Mode flattened the
-button backgrounds and the focus ring's fixed cyan; a `@media (forced-colors:
-active)` block now pins focus to `Highlight` and gives buttons, panels and
-rules real borders.
+Three things were fixed rather than found compliant.
+
+- `--color-faint` measured 3.77:1 on `--color-surface-2` — below the 4.5:1 AA
+  floor for normal text, and all nine of its usages were `text-sm` or
+  `text-xs`, so none qualified for the 3:1 large-text allowance. It is now
+  4.97:1 at its worst, still comfortably dimmer than `--color-muted` so the
+  hierarchy is intact.
+- `--color-line-bright` was the border on every `.field` and `.btn-ghost` at
+  1.78:1 against `--color-void`. That border is the *only* thing identifying
+  the control, which SC 1.4.11 puts at 3:1. Controls now use a separate
+  `--color-control-border` at 3.57:1; the dimmer token stays for the corner
+  registration marks and card hover borders, which carry no such requirement.
+- There was no `forced-colors` support at all, so Windows High Contrast Mode
+  flattened the button backgrounds and the focus ring's fixed cyan. A `@media
+  (forced-colors: active)` block now pins focus to `Highlight` and gives
+  buttons, panels and rules real borders.
 
 Error text carries `role="alert"`, so a failed form announces itself rather
 than changing silently.
 
-Not covered: no screen-reader pass, and no automated axe run in CI.
+Both checks now run in CI, and they cover different halves:
+
+- **`npm run verify:a11y`** loads every anonymously reachable page in Chromium
+  at two viewports and runs axe against `wcag2a`/`wcag2aa`/`wcag21a`/`wcag21aa`
+  /`wcag22aa`. 24 page audits, 0 violations.
+- **`tests/contrast.test.ts`** computes the ratios from the tokens in
+  `globals.css`. This exists because axe *cannot* settle contrast here: a
+  gradient background or a pseudo-element overlay makes it return "incomplete",
+  which on the home page alone is 28 nodes including the primary call to
+  action. Both defects above would have passed an axe-only run.
+
+Not covered: no screen-reader pass, and nothing checks the console at `/admin`
+or any other page behind a session — `verify:a11y` is anonymous by
+construction. Automated rules also catch only part of WCAG; a green run is a
+floor, not a pass.
 
 ## The console (`/admin`)
 

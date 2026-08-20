@@ -18,6 +18,15 @@
   --color-surface-2: #141821;
   --color-line: #1f242e;
   --color-line-bright: #333b4a;
+  /* The border of a control, kept separate from the decorative hairlines
+     above because it carries a requirement they do not. A text input and a
+     ghost button are identified *only* by their border, which WCAG 2.2 SC
+     1.4.11 (Non-text Contrast) puts at 3:1 against what surrounds them.
+     --color-line-bright measures 1.78:1 on --color-void, 1.70:1 on
+     --color-surface and 1.58:1 on --color-surface-2 — it was doing this job
+     and failing it. This value measures 3.57 / 3.41 / 3.16:1 on the same
+     three grounds. tests/contrast.test.ts holds both facts. */
+  --color-control-border: #5a6882;
 
   /* Type */
   --color-text: #e9ecf1;
@@ -198,7 +207,9 @@ body::after {
 
   .btn-ghost {
     color: var(--color-text);
-    border-color: var(--color-line-bright);
+    /* Not --color-line-bright: the border is the only thing that makes this
+       read as a button, so it owes 3:1. See the token's definition. */
+    border-color: var(--color-control-border);
     background: rgba(255, 255, 255, 0.015);
   }
   .btn-ghost:hover {
@@ -210,7 +221,8 @@ body::after {
   .field {
     width: 100%;
     background: var(--color-void);
-    border: 1px solid var(--color-line-bright);
+    /* Same reason as .btn-ghost: this border is the input's only boundary. */
+    border: 1px solid var(--color-control-border);
     border-radius: 10px;
     padding: 0.7rem 0.95rem;
     color: var(--color-text);
@@ -282,8 +294,18 @@ body::after {
 }
 
 /* ── Focus visibility ──────────────────────────────────────────────────────
-   Cyan reads clearly against both the ground and the copper accents, so the
-   focus ring is never lost on a primary button. */
+ *
+ * The offset is doing real work, not softening a corner. Cyan on copper is
+ * 1.42:1 — a ring drawn flush against a primary button would be close to
+ * invisible, and SC 1.4.11 asks for 3:1 against adjacent colours. Offsetting
+ * it by 2px lifts the ring off the control entirely, so what it sits against
+ * is the page ground: 11.21:1 on --color-void, 10.73 on --color-surface, 9.94
+ * on --color-surface-2.
+ *
+ * (An earlier version of this comment claimed cyan "reads clearly against the
+ * copper accents". It does not. The design was fine; the stated reason was
+ * wrong, which is worse — it invites someone to delete the offset.)
+ */
 :focus-visible {
   outline: 2px solid var(--color-cyan);
   outline-offset: 2px;

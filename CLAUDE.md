@@ -73,8 +73,13 @@ npm run verify:exposure           # scratch database only
 npm run verify:seo                # read-only; safe against any database
 npm run build
 npm run verify:smoke              # needs a running server; read-only
+npm run verify:a11y               # same server; needs Chromium; read-only
 npm run verify:legal              # legal placeholders; read-only
 ```
+
+`verify:a11y` launches Chromium through Playwright. Install it once with
+`npx playwright install --with-deps chromium`, or set
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a binary the image already carries.
 
 `verify:entitlements` and `verify:exposure` both write to and delete from the
 database. Never point them at production.
@@ -103,6 +108,11 @@ Observable in the code, not general advice:
 - Brand strings live only in `src/lib/brand.ts`. Do not hardcode the name,
   tagline or palette anywhere else; `next/og` images duplicate the palette there
   because they cannot read CSS variables.
+- Colour tokens live in the `@theme` block of `src/app/globals.css` and are
+  read back by `tests/contrast.test.ts`, which computes WCAG ratios from them.
+  Adding a text colour, or a border that identifies a control, means adding the
+  pair it is used in — axe cannot settle contrast against this design's
+  gradients and overlays, so that test is the only thing watching.
 - JSON-LD goes through `safeJsonLd()` in `src/lib/seo.ts`, which escapes `<`,
   `>`, `&` and U+2028/9. `JSON.stringify` alone is an XSS here — that was a real
   bug, not a hypothetical.
@@ -129,12 +139,13 @@ Observable in the code, not general advice:
 Worth raising once, not fixing unprompted:
 
 - No branch protection, so CI reports but cannot block a merge.
-- No browser or end-to-end tests. `npm test` covers the pure logic (presigned
-  downloads, SEO helpers, rate limiting, the public projections, the health
-  config check) and the webhook route's signature gate, and the three
-  `verify:*` scripts cover entitlements, field exposure and SEO metadata
-  against a real database — but nothing drives a real browser, nothing talks to
-  the Stripe API, and nothing writes to an actual S3 bucket.
+- No end-to-end tests. `npm test` covers the pure logic (presigned downloads,
+  SEO helpers, rate limiting, the public projections, the health config check,
+  palette contrast) and the webhook route's signature gate, and the `verify:*`
+  scripts cover entitlements, field exposure, SEO metadata, runtime behaviour
+  and accessibility. `verify:a11y` does drive a real browser, but only to audit
+  anonymous pages — nothing walks a purchase, nothing talks to the Stripe API,
+  and nothing writes to an actual S3 bucket.
 - 4 high-severity advisories, all one nodemailer issue counted through
   `@auth/core`, `next-auth` and `@auth/drizzle-adapter`. Cannot be fixed
   without breaking Auth.js's declared peer range; the vector (`raw` messages)

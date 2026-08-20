@@ -22,6 +22,7 @@
     "verify:exposure": "tsx scripts/verify-exposure.ts",
     "verify:seo": "tsx scripts/verify-seo.ts",
     "verify:smoke": "tsx scripts/verify-smoke.ts",
+    "verify:a11y": "tsx scripts/verify-a11y.ts",
     "verify:legal": "tsx scripts/verify-legal.ts",
     "data:request": "tsx scripts/data-request.ts",
     "make:cover": "tsx scripts/make-cover.mts"
@@ -42,6 +43,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^9.39.5",
     "@napi-rs/canvas": "^1.0.6",
     "@next/eslint-plugin-next": "^16.3.1",
@@ -49,11 +51,13 @@
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
+    "axe-core": "^4.13.0",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "pdfjs-dist": "^6.2.108",
+    "playwright": "^1.62.1",
     "sharp": "^0.35.3",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.2",

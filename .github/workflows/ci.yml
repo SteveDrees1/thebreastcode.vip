@@ -87,14 +87,33 @@ jobs:
       # that stopped protecting /admin would have shipped green. Start the
       # built server and make the assertions against a process that is actually
       # serving.
-      - name: Runtime smoke test
+      # Chromium only, and only here. verify:a11y is the one step that needs a
+      # browser; --with-deps pulls the shared libraries the runner image does
+      # not ship. Firefox and WebKit would double the install for nothing —
+      # axe's results do not vary by engine for the rules in this tag set.
+      - name: Install Chromium for the accessibility audit
+        run: npx playwright install --with-deps chromium
+
+      # One server for both. Starting it twice would double a slow step and
+      # prove nothing extra.
+      - name: Start the built server
         run: |
           npx next start -p 3000 &
           for i in $(seq 1 30); do
             curl -sf -o /dev/null http://127.0.0.1:3000/ && break
             sleep 2
           done
-          npm run verify:smoke -- http://127.0.0.1:3000
+
+      - name: Runtime smoke test
+        run: npm run verify:smoke -- http://127.0.0.1:3000
+
+      # WCAG 2.2 AA against the pages an anonymous visitor can reach. Catches
+      # the structural failures — an unlabelled input, a broken heading order,
+      # a link with no accessible name. Contrast is covered by
+      # tests/contrast.test.ts instead, because axe cannot resolve it through
+      # this design's gradients and overlays; the reasoning is in both files.
+      - name: Accessibility audit
+        run: npm run verify:a11y -- http://127.0.0.1:3000
 
   audit:
     runs-on: ubuntu-latest
