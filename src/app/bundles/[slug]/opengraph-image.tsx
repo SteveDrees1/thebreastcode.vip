@@ -1,15 +1,22 @@
 import { ImageResponse } from "next/og";
-import { getProductBySlug } from "@/lib/catalog";
+import { getBundleBySlug, getBundleContents } from "@/lib/catalog";
 import { brand, palette } from "@/lib/brand";
 
 /**
- * Per-set social card.
+ * Per-bundle social card.
  *
- * A shared product link should say which set it is, not just which shop. The
- * layout mirrors the plate cover: series line, document number, title, and the
- * spec bar along the bottom.
+ * Bundles had none. The page sets an `openGraph` block in its metadata, and a
+ * segment that declares `openGraph` without `images` does not inherit the
+ * root's file-based card — so a shared bundle link rendered with no image at
+ * all, not even the site default. Verified in the served HTML: the product
+ * page emitted `og:image`, the bundle page emitted nothing.
+ *
+ * Deliberately not a copy of the product card. A bundle's distinguishing fact
+ * is what is in it, so the corner carries the set count and the sets are named
+ * down the side — a reader should be able to tell the two card types apart at
+ * thumbnail size.
  */
-export const alt = "Reference plate set";
+export const alt = "Series bundle";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -65,15 +72,18 @@ function RegistrationMark({ style }: { style: React.CSSProperties }) {
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   // A card is not worth a 500. If the lookup fails, fall back to the shop name.
-  const product = await getProductBySlug(slug).catch(() => undefined);
+  const bundle = await getBundleBySlug(slug).catch(() => undefined);
+  const contents = bundle ? await getBundleContents(bundle.id).catch(() => []) : [];
 
-  const title = product?.title ?? brand.name;
-  const subtitle = product?.subtitle ?? brand.tagline;
-  const docId = product?.sourceDocId;
-  const plates = product?.pageCount;
+  const title = bundle?.title ?? brand.name;
+  const subtitle = bundle?.subtitle ?? brand.tagline;
 
   // Long titles need to step down a size or they overflow the card.
-  const titleSize = title.length > 40 ? 62 : title.length > 26 ? 76 : 92;
+  const titleSize = title.length > 40 ? 58 : title.length > 26 ? 70 : 86;
+  // Four is what fits beside the title without crowding it; the rest are
+  // counted rather than dropped silently.
+  const listed = contents.slice(0, 4);
+  const overflow = contents.length - listed.length;
 
   return new ImageResponse(
     (
@@ -99,8 +109,10 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           <span style={{ letterSpacing: 6, color: MUTED, textTransform: "uppercase" }}>
             {brand.seriesName}
           </span>
-          {docId ? (
-            <span style={{ letterSpacing: 4, color: COPPER }}>NO. {docId}</span>
+          {contents.length > 0 ? (
+            <span style={{ letterSpacing: 4, color: COPPER }}>
+              {contents.length} SETS
+            </span>
           ) : null}
         </div>
 
@@ -109,7 +121,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           <div
             style={{
               display: "flex",
-              marginTop: 28,
+              marginTop: 26,
               fontSize: titleSize,
               fontWeight: 700,
               color: TEXT,
@@ -119,17 +131,36 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           >
             {title}
           </div>
-          <div
-            style={{
-              display: "flex",
-              marginTop: 22,
-              fontSize: 28,
-              color: MUTED,
-              maxWidth: 900,
-            }}
-          >
-            {subtitle}
-          </div>
+          {listed.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                marginTop: 22,
+                fontSize: 26,
+                color: MUTED,
+              }}
+            >
+              {listed.map((item) => (
+                <div
+                  key={item.id}
+                  style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 6 }}
+                >
+                  <div style={{ display: "flex", width: 18, height: 2, background: COPPER }} />
+                  {item.title}
+                </div>
+              ))}
+              {overflow > 0 ? (
+                <div style={{ display: "flex", marginTop: 6, marginLeft: 32 }}>
+                  and {overflow} more
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div style={{ display: "flex", marginTop: 22, fontSize: 28, color: MUTED }}>
+              {subtitle}
+            </div>
+          )}
         </div>
 
         <div
@@ -144,7 +175,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             textTransform: "uppercase",
           }}
         >
-          {plates ? <span>{plates} Plates</span> : null}
+          <span>Series Bundle</span>
           <span>PDF · Letter</span>
           <span>Scale N.T.S.</span>
           <span style={{ marginLeft: "auto", color: TEXT }}>{brand.domain}</span>

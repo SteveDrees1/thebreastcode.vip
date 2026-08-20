@@ -212,6 +212,62 @@ async function main() {
     }
   }
 
+  // --- Social cards and structured-data images ------------------------------
+  {
+    /*
+     * Both halves of this were broken and neither was visible from the page.
+     *
+     * A bundle page declares `openGraph` in its metadata, and a segment that
+     * declares openGraph without `images` does not inherit the root's
+     * file-based card — so bundle links shared with no image at all, while
+     * product links shared fine. And the Product JSON-LD emitted the cover
+     * path verbatim, `"/covers/x.webp"`, which a crawler reads detached from
+     * the page it came from and cannot resolve.
+     */
+    for (const [listing, pattern] of [
+      ["/catalog", /href="\/catalog\/([a-z0-9-]+)"/],
+      ["/bundles", /href="\/bundles\/([a-z0-9-]+)"/],
+    ] as const) {
+      const { body: index } = await get(listing);
+      const slug = pattern.exec(index)?.[1];
+      if (!slug) {
+        fail(`a detail page is reachable from ${listing}`, "no links found — seeded?");
+        continue;
+      }
+      const path = `${listing}/${slug}`;
+      const { body: page } = await get(path);
+
+      const ogImage = /<meta property="og:image" content="([^"]+)"/.exec(page)?.[1];
+      expect(
+        `${path} has a social card`,
+        Boolean(ogImage),
+        "no og:image — a shared link renders as a blank card",
+      );
+      if (ogImage) {
+        const card = await fetch(ogImage, { redirect: "manual" });
+        expect(
+          `${path} social card renders`,
+          card.status === 200 && (card.headers.get("content-type") ?? "").startsWith("image/"),
+          `${ogImage} returned ${card.status} ${card.headers.get("content-type")}`,
+        );
+      }
+
+      // Pull the images back out of the JSON-LD as the crawler would.
+      const images = [...page.matchAll(/"image":\s*\[\s*"([^"]+)"/g)].map((m) => m[1]);
+      expect(
+        `${path} structured data names an image`,
+        images.length > 0,
+        "Product JSON-LD carried no image",
+      );
+      const relative = images.filter((url) => !/^https?:\/\//i.test(url));
+      expect(
+        `${path} structured-data images are absolute`,
+        relative.length === 0,
+        `relative and therefore unresolvable to a crawler: ${relative.join(", ")}`,
+      );
+    }
+  }
+
   // --- The sitemap matches what the catalog shows --------------------------
   // These drifted apart once: six products listed, three in the sitemap.
   {

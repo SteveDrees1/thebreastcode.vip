@@ -127,13 +127,26 @@ describe("productJsonLd", () => {
     );
   });
 
-  it("omits image entirely rather than emitting an empty one", () => {
-    expect(productJsonLd(base)).not.toHaveProperty("image");
-    expect(productJsonLd({ ...base, image: null })).not.toHaveProperty("image");
-    expect(productJsonLd({ ...base, image: "" })).not.toHaveProperty("image");
+  it("always emits an absolute image, falling back to the route's own card", () => {
+    // `image` is a required property for a Product rich result, and a crawler
+    // reads this JSON detached from the page, so a relative path resolves
+    // against nothing. Both halves were wrong before: a cover was emitted
+    // verbatim as "/covers/x.webp", and a set with no cover emitted no image
+    // at all.
+    expect(productJsonLd({ ...base, image: "/covers/x.webp" }).image).toEqual([
+      "https://example.test/covers/x.webp",
+    ]);
     expect(productJsonLd({ ...base, image: "https://cdn.test/a.webp" }).image).toEqual([
       "https://cdn.test/a.webp",
     ]);
+
+    // No cover, in each of the three ways a caller can express it.
+    const card = ["https://example.test/catalog/joinery-reference/opengraph-image"];
+    expect(productJsonLd(base).image).toEqual(card);
+    expect(productJsonLd({ ...base, image: null }).image).toEqual(card);
+    // An empty string is not nullish, so `??` would have made this
+    // "https://example.test" — the site root, silently, as a product image.
+    expect(productJsonLd({ ...base, image: "" }).image).toEqual(card);
   });
 
   it("survives a hostile title once passed through safeJsonLd", () => {

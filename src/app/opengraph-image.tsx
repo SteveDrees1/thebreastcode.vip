@@ -17,16 +17,47 @@ export const contentType = "image/png";
 
 const { copper: COPPER, ink: INK, text: TEXT, muted: MUTED } = palette;
 
-/** The trim marks that appear on every printed plate. */
-function RegistrationMark({
-  style,
-}: {
-  style: React.CSSProperties;
-}) {
+/**
+ * The `+` trim marks that appear on every printed plate.
+ *
+ * The box is sized on purpose. Without a width and height both bars anchored
+ * to the container's top-left, so the vertical one hung *below* the horizontal
+ * one and every corner rendered as `⊤` rather than `+` — on the image that
+ * represents every shared link to the shop.
+ */
+const MARK = 28;
+
+function RegistrationMark({ style }: { style: React.CSSProperties }) {
   return (
-    <div style={{ position: "absolute", display: "flex", ...style }}>
-      <div style={{ position: "absolute", width: 28, height: 2, background: COPPER }} />
-      <div style={{ position: "absolute", width: 2, height: 28, background: COPPER, left: 13 }} />
+    <div
+      style={{
+        position: "absolute",
+        display: "flex",
+        width: MARK,
+        height: MARK,
+        ...style,
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: MARK / 2 - 1,
+          left: 0,
+          width: MARK,
+          height: 2,
+          background: COPPER,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: MARK / 2 - 1,
+          width: 2,
+          height: MARK,
+          background: COPPER,
+        }}
+      />
     </div>
   );
 }
@@ -46,10 +77,11 @@ export default function Image() {
           position: "relative",
         }}
       >
+        {/* Equal inset on all four sides, now that the mark has a known size. */}
         <RegistrationMark style={{ top: 28, left: 28 }} />
-        <RegistrationMark style={{ top: 28, right: 42 }} />
-        <RegistrationMark style={{ bottom: 42, left: 28 }} />
-        <RegistrationMark style={{ bottom: 42, right: 42 }} />
+        <RegistrationMark style={{ top: 28, right: 28 }} />
+        <RegistrationMark style={{ bottom: 28, left: 28 }} />
+        <RegistrationMark style={{ bottom: 28, right: 28 }} />
 
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div

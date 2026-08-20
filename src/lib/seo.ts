@@ -106,6 +106,11 @@ export function metaDescription(...candidates: Array<string | null | undefined>)
  * which cannot return empty. `image` is omitted rather than sent empty, since
  * an empty string is worse than an absent optional property.
  */
+/** Resolve a site-relative path to a fully-qualified URL; pass absolutes through. */
+function absoluteUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `${env.siteUrl}${url}`;
+}
+
 export function productJsonLd(item: {
   name: string;
   description: string;
@@ -122,7 +127,23 @@ export function productJsonLd(item: {
     description: item.description,
     sku: item.sku,
     brand: { "@type": "Brand", name: brand.name },
-    ...(item.image ? { image: [item.image] } : {}),
+    /*
+     * Absolute, always, and never absent.
+     *
+     * This used to emit `item.image` verbatim, which for every set with a
+     * cover meant `"/covers/<slug>.webp"` — a relative URL in a document a
+     * crawler consumes detached from the page it came from, so it resolves
+     * against nothing. Google's Product documentation requires a
+     * fully-qualified URL here.
+     *
+     * A set with no cover emitted no `image` at all, which is a missing
+     * required property. The route's own `opengraph-image` is the honest
+     * fallback: it is a real 1200x630 PNG of that exact product or bundle,
+     * generated on demand, and it exists for both route types. Confirmed
+     * serving 200 image/png at the bare path, without the cache-busting query
+     * Next appends to the meta tag.
+     */
+    image: [absoluteUrl(item.image || `${item.path}/opengraph-image`)],
     offers: {
       "@type": "Offer",
       price: (item.priceCents / 100).toFixed(2),

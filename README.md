@@ -368,6 +368,7 @@ catalog the way hand-maintained files do.
 | `/llms.txt` | The [llmstxt.org](https://llmstxt.org) convention — a curated map for language models, with live titles, prices and links |
 | `/opengraph-image` | Generated 1200×630 social card for the site |
 | `/catalog/[slug]/opengraph-image` | Per-set card with its title, doc number and plate count |
+| `/bundles/[slug]/opengraph-image` | Per-bundle card naming the sets inside it |
 
 **Social cards were the biggest gap** — before this, every shared link rendered
 as a bare URL. Cards are drawn with `next/og` in the same vocabulary as the
@@ -376,12 +377,27 @@ Product pages deliberately do **not** set `openGraph.images`: doing so would
 override the generated card, and the cover is a 3:4 portrait that crops badly to
 the 1.91:1 social ratio.
 
+Bundles had no card at all until later, and the reason is a trap worth knowing:
+a segment that declares `openGraph` in its metadata **without** `images` does
+not inherit the root's file-based card. The bundle page declared one, so it
+emitted no `og:image` whatsoever — not even the site default — while product
+pages, which have a card file in their own segment, were fine. Confirmed in the
+served HTML rather than reasoned about, and `verify:smoke` now asserts that
+both detail routes emit an `og:image` and that the URL actually returns an
+image.
+
 **Structured data**, all escaped through `safeJsonLd` (see the XSS note below):
 
 - `Organization` + `WebSite` site-wide, emitted once in the layout
 - `Product` + `Offer` on every set and bundle — price and availability in results
 - `BreadcrumbList` on set and bundle pages — results show a trail, not a bare URL
 - `ItemList` on the catalog
+
+`Product.image` is always present and always absolute. It used to emit the
+cover path verbatim (`/covers/x.webp`), which a crawler reading the JSON
+detached from its page cannot resolve, and a set with no cover emitted no
+`image` at all — a missing required property. Both now fall back to the route's
+own `opengraph-image`, which is a real 1200×630 PNG of that exact item.
 
 Canonical URLs are set on every public page; customer pages carry
 `robots: { index: false }` and `/admin` additionally sends `X-Robots-Tag`.
