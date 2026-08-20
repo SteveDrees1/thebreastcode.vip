@@ -354,6 +354,44 @@ async function main() {
     );
   }
 
+  // --- Typography is consistent in the copy this repo authors ---------------
+  {
+    /*
+     * The site writes apostrophes as `’`, everywhere. It did not always: the
+     * terms and privacy pages shipped six straight `'` while every other page
+     * used `&rsquo;`, so the two most formal documents on the site were the
+     * two that read as unedited. Nothing noticed, because both spellings are
+     * valid HTML and neither is a bug in any other sense.
+     *
+     * Only pages whose text is written in this repo are checked. Anything
+     * rendering a product title or description is excluded on purpose —
+     * that copy is typed into the console by a person, and failing a build
+     * over someone's punctuation would be a check nobody keeps.
+     */
+    for (const path of ["/signin", "/terms", "/privacy", "/no-such-page"]) {
+      const { body } = await get(path);
+      const visible = body
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        /*
+         * Decode before matching. React escapes a straight apostrophe in text
+         * to `&#x27;`, so a regex run over raw HTML never sees one and reports
+         * every page clean — which is exactly what the first version of this
+         * check did. It was caught by putting a straight apostrophe back into
+         * /privacy and watching the check still pass.
+         */
+        .replace(/&#x27;|&#39;|&apos;/g, "'")
+        .replace(/&#x2019;|&#8217;|&rsquo;/g, "\u2019");
+      const straight = visible.match(/[A-Za-z]'(?:s|t|re|ve|ll|d|m)\b/g) ?? [];
+      expect(
+        `${path} uses typographic apostrophes`,
+        straight.length === 0,
+        `found ${straight.length}: ${[...new Set(straight)].join(", ")}`,
+      );
+    }
+  }
+
   console.log(`\n${checks} checks, ${failures} failed.`);
   process.exit(failures > 0 ? 1 : 0);
 }

@@ -51,11 +51,10 @@ export default async function CatalogPage() {
           {/* The cards carry h3 headings; without this the page would jump
               straight from h1 to h3 and break the heading outline. */}
           <h2 className="sr-only">All plate sets</h2>
-          {all.map((product, i) => (
+          {all.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
-              index={i}
               owned={owned.has(product.id)}
             />
           ))}

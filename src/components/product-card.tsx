@@ -3,17 +3,15 @@ import type { PublicProduct } from "@/lib/catalog";
 import { formatPrice } from "@/lib/stripe";
 
 /**
- * Catalog tile. Uses the plate vocabulary: an index number, a mono spec line,
- * and registration marks that light up on hover.
+ * Catalog tile. Uses the plate vocabulary: a document number, a mono spec
+ * line, and registration marks that light up on hover.
  */
 export function ProductCard({
   product,
   owned,
-  index,
 }: {
   product: PublicProduct;
   owned?: boolean;
-  index?: number;
 }) {
   return (
     <Link
@@ -37,9 +35,18 @@ export function ProductCard({
           <div className="flex h-full flex-col justify-between p-5">
             <div className="flex items-start justify-between">
               <span className="label">Plate Set</span>
-              {index !== undefined ? (
+              {/*
+                The product's own document number, not its position in this
+                list. It used to be `index + 1`, which meant the same set was
+                "Plate Set 01" on the home page and "Plate Set 06" on the
+                catalog — and the detail page, which has always shown
+                `No. {sourceDocId}` in this exact slot, disagreed with both.
+                A number printed in the plate's own corner reads as the
+                plate's number; it has to be one.
+              */}
+              {product.sourceDocId ? (
                 <span className="label label-copper">
-                  {String(index + 1).padStart(2, "0")}
+                  No. {product.sourceDocId}
                 </span>
               ) : null}
             </div>

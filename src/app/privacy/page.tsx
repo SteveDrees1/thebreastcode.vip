@@ -39,12 +39,12 @@ export default function PrivacyPage() {
     {
       title: "What we collect",
       paragraphs: [
-        "Your email address, because it is how you sign in and how we send receipts and download links. We never store a password — there isn't one. Signing in sends a single-use link to your inbox.",
+        "Your email address, because it is how you sign in and how we send receipts and download links. We never store a password — there isn’t one. Signing in sends a single-use link to your inbox.",
         "A display name and avatar URL, only if a sign-in method provides them. Both may be empty.",
         "Your purchases and entitlements: which guides you bought or were given, when, through what route (purchase, bundle, promo code, referral reward or a manual grant), and whether access has expired or been revoked.",
         "Subscription status, if you have an all-access plan, and the Stripe customer identifier that links your account to your billing records.",
         "A referral code for your account, and — if you were referred, or you referred somebody — a record connecting the two accounts so rewards can be counted.",
-        "A log of downloads: which guide, when, how you were entitled to it, your browser's user-agent string, and your IP address stored only as a salted SHA-256 hash. We do not keep raw IP addresses in that log.",
+        "A log of downloads: which guide, when, how you were entitled to it, your browser’s user-agent string, and your IP address stored only as a salted SHA-256 hash. We do not keep raw IP addresses in that log.",
         "If you are an administrator, an audit record of changes you make in the console, including your email address at the time and a hashed IP address.",
       ],
     },
@@ -68,7 +68,7 @@ export default function PrivacyPage() {
       title: "Cookies",
       paragraphs: [
         "We set one cookie: a session cookie that keeps you signed in after you click a sign-in link. It is strictly necessary for the site to work, so it does not require consent and there is no cookie banner.",
-        "We set no analytics, advertising or tracking cookies. Stripe may set its own cookies on Stripe's checkout pages, which are governed by Stripe's privacy policy rather than this one.",
+        "We set no analytics, advertising or tracking cookies. Stripe may set its own cookies on Stripe’s checkout pages, which are governed by Stripe’s privacy policy rather than this one.",
       ],
     },
     {
@@ -97,7 +97,7 @@ export default function PrivacyPage() {
         "You can ask us to correct anything inaccurate — you can change your name yourself from your account.",
         "You can ask us to delete your account and personal data. We will do that, except where we are required to keep a record of a sale for tax purposes; in that case we keep the minimum and delete the rest. Deleting your account ends access to your library, including guides you bought.",
         "You can object to processing based on legitimate interests, and ask us to restrict processing while a disagreement is resolved.",
-        `Write to ${legalValue(legal.privacyEmail)}. We will respond within one month. If you are not satisfied, you can complain to your local data protection authority — in the UK, the Information Commissioner's Office.`,
+        `Write to ${legalValue(legal.privacyEmail)}. We will respond within one month. If you are not satisfied, you can complain to your local data protection authority — in the UK, the Information Commissioner’s Office.`,
       ],
     },
     {

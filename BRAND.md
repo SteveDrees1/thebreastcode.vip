@@ -141,6 +141,17 @@ These three make a surface recognisable as ours:
 3. **Index numbers** — `01`, `02`, `03` in copper mono before list items. The
    catalog is a numbered series, and it should look like one.
 
+**Index numbers and document numbers are not the same thing, and must never be
+set in the same place.** An index number counts positions in a list and is
+meaningless outside it. A document number (`No. WW-02`) belongs to the plate
+set itself and is the same wherever the set appears. The corner of a plate — on
+a card, on the detail page, on a printed sheet — is where a *document* number
+goes, because that is what a corner number means to anyone who has held a
+drawing. Putting a list position there once made the same set "Plate Set 01" on
+the home page and "Plate Set 06" on the catalog, while its detail page showed a
+third thing. A set with no document number shows no number at all; a blank
+corner is honest, a wrong one is not.
+
 ### Logo
 
 The wordmark is `DATUM PRESS` set in Space Grotesk 700, uppercase, tight

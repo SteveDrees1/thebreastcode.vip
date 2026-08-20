@@ -443,7 +443,10 @@ Both checks now run in CI, and they cover different halves:
 
 - **`npm run verify:a11y`** loads every anonymously reachable page in Chromium
   at two viewports and runs axe against `wcag2a`/`wcag2aa`/`wcag21a`/`wcag21aa`
-  /`wcag22aa`. 24 page audits, 0 violations.
+  /`wcag22aa`. 24 visits, 20 audited, 0 violations — the four unaudited are
+  `/referrals` and `/redeem` at both viewports, which redirect to sign-in. The
+  run fails if any always-public page goes unaudited, so a clean result cannot
+  be an empty one.
 - **`tests/contrast.test.ts`** computes the ratios from the tokens in
   `globals.css`. This exists because axe *cannot* settle contrast here: a
   gradient background or a pseudo-element overlay makes it return "incomplete",

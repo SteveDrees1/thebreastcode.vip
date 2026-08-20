@@ -86,7 +86,7 @@ export default function TermsPage() {
       title: "Subscriptions",
       paragraphs: [
         "An all-access plan renews automatically at the interval shown when you subscribe, at the price shown, until you cancel. We will take payment on each renewal using the payment method on file.",
-        "You can cancel at any time from your account, which takes you to Stripe's billing portal. Cancelling stops future renewals; it does not refund the period you are in, and you keep access until that period ends.",
+        "You can cancel at any time from your account, which takes you to Stripe’s billing portal. Cancelling stops future renewals; it does not refund the period you are in, and you keep access until that period ends.",
         "If we change the price of a plan, we will tell you before it takes effect and you will have the chance to cancel first.",
       ],
     },

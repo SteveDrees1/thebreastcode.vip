@@ -103,11 +103,10 @@ export default async function HomePage() {
           <hr className="rule mt-5 mb-8" />
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {shelf.map((product, i) => (
+            {shelf.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
-                index={i}
                 owned={owned.has(product.id)}
               />
             ))}
