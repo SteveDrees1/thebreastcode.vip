@@ -9,8 +9,17 @@
  *   npm run verify:a11y                       # against localhost:3000
  *   npm run verify:a11y -- http://host:3601   # against anything else
  *
- * Read-only: every visit is a GET and nothing is written or submitted. Safe
- * against a deployed environment, though it expects a seeded catalog.
+ * Read-only by default: every visit is a GET and nothing is written or
+ * submitted. Safe against a deployed environment, though it expects a seeded
+ * catalog.
+ *
+ *   npm run verify:a11y -- --with-session
+ *
+ * adds a second pass over the pages that need an account — the customer's
+ * library and the whole `/admin` console, which is the richest surface in the
+ * app and the one nothing was auditing. That pass **writes**: it inserts a
+ * scratch admin user and a session row, and deletes both afterwards. Point it
+ * at a disposable database only, on the same terms as verify:entitlements.
  *
  * WHY A BROWSER, AND NOT JSDOM
  *
@@ -29,10 +38,19 @@
  * `/account` and `/admin` need a session, so they are not visited at all.
  */
 import "./load-env";
+import { randomUUID } from "node:crypto";
 import { chromium, type Browser, type Page } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
+import { eq } from "drizzle-orm";
+import { db } from "../src/db";
+import { sessions, users } from "../src/db/schema";
 
-const base = (process.argv[2] ?? "http://127.0.0.1:3000").replace(/\/$/, "");
+const args = process.argv.slice(2);
+const withSession = args.includes("--with-session");
+const base = (args.find((a) => !a.startsWith("--")) ?? "http://127.0.0.1:3000").replace(
+  /\/$/,
+  "",
+);
 
 /*
  * WCAG 2.2 AA, which is what the EU Accessibility Act and the refreshed
@@ -84,6 +102,89 @@ const MUST_BE_AUDITED = [
   "/privacy",
   "/this-route-does-not-exist",
 ];
+
+/*
+ * Pages that only exist for someone signed in, audited under --with-session.
+ *
+ * The console is the largest surface in the app and the one with the most
+ * forms, selects and tables — where accessibility defects actually live — and
+ * nothing was looking at it, because an anonymous crawl is answered with a 404
+ * by design. Staff-facing is not exempt: EN 301 549 and Section 508 cover the
+ * tools employees use, not only what customers see.
+ */
+const SIGNED_IN_ROUTES = [
+  "/library",
+  "/account",
+  "/referrals",
+  "/redeem",
+  "/admin",
+  "/admin/products",
+  "/admin/bundles",
+  "/admin/promos",
+  "/admin/customers",
+  "/admin/activity",
+];
+
+/**
+ * Create a scratch admin and a session row for it, and return the token.
+ *
+ * A session is inserted directly rather than driven through the magic-link
+ * flow: that flow needs an SMTP server, and the point here is to audit the
+ * pages behind the door, not the door.
+ */
+async function openSession(): Promise<{ token: string; userId: string }> {
+  const token = randomUUID();
+  const [user] = await db
+    .insert(users)
+    .values({
+      email: `a11y-${randomUUID()}@verify.invalid`,
+      name: "Accessibility audit",
+      emailVerified: new Date(),
+      isAdmin: true,
+    })
+    .returning({ id: users.id });
+
+  await db.insert(sessions).values({
+    sessionToken: token,
+    userId: user.id,
+    expires: new Date(Date.now() + 60 * 60 * 1000),
+  });
+
+  return { token, userId: user.id };
+}
+
+/** Remove both rows. The session cascades from the user; deleted explicitly anyway. */
+async function closeSession(userId: string) {
+  await db.delete(sessions).where(eq(sessions.userId, userId));
+  await db.delete(users).where(eq(users.id, userId));
+}
+
+/**
+ * Auth.js names the cookie by transport, and `src/middleware.ts` looks for
+ * both. Getting this wrong sends no cookie at all and every page looks
+ * anonymous — which reads exactly like a broken sign-in, and is the same trap
+ * SECURITY.md records from the manual auth run.
+ */
+function sessionCookieName(url: string): string {
+  return url.startsWith("https://")
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token";
+}
+
+/** First product and bundle edit form reachable from the console listings. */
+async function discoverAdminEditRoutes(page: Page): Promise<string[]> {
+  const found: string[] = [];
+  for (const [listing, pattern] of [
+    ["/admin/products", /\/admin\/products\/([a-z0-9-]+)/i],
+    ["/admin/bundles", /\/admin\/bundles\/([a-z0-9-]+)/i],
+  ] as const) {
+    await page.goto(`${base}${listing}`, { waitUntil: "load" });
+    const id = pattern.exec(await page.content())?.[1];
+    if (id) found.push(`${listing}/${id}`);
+    else console.warn(`NOTE  no edit link found on ${listing}; skipping that form`);
+  }
+  return found;
+}
 
 /** Pull the first catalog and bundle links out of the rendered HTML. */
 async function discoverDetailRoutes(): Promise<string[]> {
@@ -202,19 +303,64 @@ async function main() {
     throw error;
   }
 
-  // One context for the whole run: no cookies are ever set, so every visit is
-  // anonymous by construction rather than by convention.
+  // A fresh context for the anonymous pass: no cookie is ever set in it, so
+  // every visit is anonymous by construction rather than by convention.
   const context = await browser.newContext();
   const page = await context.newPage();
 
+  let scratchUserId: string | undefined;
   try {
     for (const path of routes) {
       for (const viewport of VIEWPORTS) {
         await audit(page, path, viewport);
       }
     }
+
+    if (withSession) {
+      console.log("\n--- signed in --------------------------------------------");
+      const { token, userId } = await openSession();
+      scratchUserId = userId;
+
+      // A second context, so the anonymous pass above cannot be contaminated
+      // by a cookie set afterwards.
+      const signedIn = await browser.newContext();
+      await signedIn.addCookies([
+        { name: sessionCookieName(base), value: token, url: base },
+      ]);
+      const signedInPage = await signedIn.newPage();
+
+      const signedInRoutes = [
+        ...SIGNED_IN_ROUTES,
+        // The edit forms are the densest controls in the app — selects,
+        // textareas, checkboxes, destructive buttons — so audit one of each
+        // rather than only their listings.
+        ...(await discoverAdminEditRoutes(signedInPage)),
+      ];
+
+      for (const path of signedInRoutes) {
+        for (const viewport of VIEWPORTS) {
+          await audit(signedInPage, path, viewport);
+        }
+      }
+
+      // Every signed-in route must actually be audited. A session that failed
+      // to take would redirect each one to /signin, and the run would report
+      // nothing but NOTEs — clean, and worthless.
+      for (const path of signedInRoutes) {
+        for (const v of VIEWPORTS) {
+          const key = `${path} [${v.name}]`;
+          if (!audited.has(key)) {
+            violations += 1;
+            console.error(`FAIL  ${key} was never audited; is the session cookie taking?`);
+          }
+        }
+      }
+
+      await signedIn.close();
+    }
   } finally {
     await browser.close();
+    if (scratchUserId) await closeSession(scratchUserId);
   }
 
   if (incompleteSeen.size > 0) {

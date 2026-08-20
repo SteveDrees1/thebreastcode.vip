@@ -102,31 +102,48 @@ export default async function AdminOverviewPage() {
         <p className="label label-copper">Overview</p>
         <hr className="rule mt-4 mb-6" />
 
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-panel)] border border-line bg-line sm:grid-cols-3">
+        {/*
+          A list of tiles, not a description list.
+
+          This was a <dl> with <Link> as a direct child and the <dt>/<dd> pair
+          inside it — which HTML forbids and which detaches the term from the
+          list entirely for a screen reader. axe flagged both halves as
+          serious: `definition-list` ("dl element has direct children that are
+          not allowed: a") and `dlitem` ("Description list item does not have a
+          <dl> parent element"), on every tile, at both viewports.
+
+          Wrapping the anchor in a <div> would not have fixed it — the anchor
+          still sits between the <dl> and its <dt>. The honest reading is that
+          half of these tiles are navigation and the rest are figures, which is
+          a list, not a set of term/definition pairs. The Revenue block below
+          stays a <dl>, because that genuinely is one.
+        */}
+        <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-panel)] border border-line bg-line sm:grid-cols-3">
           {stats.map((stat) => {
             const body = (
               <>
-                <dt className="label">{stat.k}</dt>
-                <dd className="mt-1.5 font-display text-3xl font-bold tabular-nums">
+                <span className="label">{stat.k}</span>
+                <span className="mt-1.5 block font-display text-3xl font-bold tabular-nums">
                   {String(stat.v).padStart(2, "0")}
-                </dd>
+                </span>
               </>
             );
-            return stat.href ? (
-              <Link
-                key={stat.k}
-                href={stat.href}
-                className="bg-surface px-5 py-4 transition hover:bg-surface-2"
-              >
-                {body}
-              </Link>
-            ) : (
-              <div key={stat.k} className="bg-surface px-5 py-4">
-                {body}
-              </div>
+            return (
+              <li key={stat.k} className="bg-surface">
+                {stat.href ? (
+                  <Link
+                    href={stat.href}
+                    className="block px-5 py-4 transition hover:bg-surface-2"
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  <div className="px-5 py-4">{body}</div>
+                )}
+              </li>
             );
           })}
-        </dl>
+        </ul>
       </section>
 
       <section>

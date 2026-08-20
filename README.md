@@ -98,6 +98,7 @@ npm run verify:seo            # reports pages with no description of their own
 npm run build
 npm run verify:smoke          # against a running server: npm start, then this
 npm run verify:a11y           # same running server; needs Chromium
+npm run verify:a11y -- --with-session   # …and the pages behind a login; writes
 npm run verify:legal          # unfilled legal placeholders; --strict before launch
 ```
 
@@ -475,6 +476,19 @@ Both checks now run in CI, and they cover different halves:
   `/referrals` and `/redeem` at both viewports, which redirect to sign-in. The
   run fails if any always-public page goes unaudited, so a clean result cannot
   be an empty one.
+- **`-- --with-session`** adds the pages behind a login: the library, the
+  account pages, and every screen of the `/admin` console including one product
+  and one bundle edit form. 48 visits, 44 audited. It inserts a scratch admin
+  and a session row directly and deletes both in a `finally`, so it needs a
+  database it may write to — never production. CI runs this form.
+
+  It is not decoration. The console is the densest surface in the app and
+  nothing had ever audited it; the first run found two *serious* violations on
+  `/admin`, at both viewports. The overview tiles were a `<dl>` with `<a>` as a
+  direct child and the `<dt>`/`<dd>` pair inside the anchor, which HTML forbids
+  and which detaches the term from the list for a screen reader. Half those
+  tiles are navigation and the rest are figures, so they are a `<ul>` now; the
+  revenue block below them stays a `<dl>`, because it genuinely is one.
 - **`tests/contrast.test.ts`** computes the ratios from the tokens in
   `globals.css`. This exists because axe *cannot* settle contrast here: a
   gradient background or a pseudo-element overlay makes it return "incomplete",

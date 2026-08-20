@@ -53,6 +53,12 @@ removed from the source, rather than assumed to be watching.
 `npm run verify:seo` is separate: it only reads, so it is safe against any
 database including a copy of production.
 
+`npm run verify:a11y -- --with-session` inserts a scratch admin user and a
+session row so it can audit the console, and deletes both in a `finally`. It
+creates a real administrator, briefly, in whatever database it is pointed at —
+treat it exactly like `verify:entitlements` and give it a disposable one. The
+default run, without the flag, sets no cookie and writes nothing.
+
 `npm run verify:smoke` runs against a server that is actually serving, and
 asserts the runtime properties nothing else can: that `/admin` answers 404 to
 an anonymous caller, that the CSP nonce is present *and differs between

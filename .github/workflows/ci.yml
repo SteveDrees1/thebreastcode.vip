@@ -113,13 +113,20 @@ jobs:
       - name: Runtime smoke test
         run: npm run verify:smoke -- http://127.0.0.1:3000
 
-      # WCAG 2.2 AA against the pages an anonymous visitor can reach. Catches
-      # the structural failures — an unlabelled input, a broken heading order,
-      # a link with no accessible name. Contrast is covered by
-      # tests/contrast.test.ts instead, because axe cannot resolve it through
-      # this design's gradients and overlays; the reasoning is in both files.
+      # WCAG 2.2 AA. Catches the structural failures — an unlabelled input, a
+      # broken heading order, a link with no accessible name. Contrast is
+      # covered by tests/contrast.test.ts instead, because axe cannot resolve
+      # it through this design's gradients and overlays; the reasoning is in
+      # both files.
+      #
+      # --with-session adds a pass over the library, the account pages and the
+      # whole /admin console, which is where the forms and tables are. It
+      # inserts a scratch admin and a session row and deletes both afterwards,
+      # so it needs a database it may write to — which is what the service
+      # container above is. It found two serious violations the first time it
+      # ran, both on /admin.
       - name: Accessibility audit
-        run: npm run verify:a11y -- http://127.0.0.1:3000
+        run: npm run verify:a11y -- http://127.0.0.1:3000 --with-session
 
   audit:
     runs-on: ubuntu-latest

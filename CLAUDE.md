@@ -74,6 +74,7 @@ npm run verify:seo                # read-only; safe against any database
 npm run build
 npm run verify:smoke              # needs a running server; read-only
 npm run verify:a11y               # same server; needs Chromium; read-only
+npm run verify:a11y -- --with-session   # adds /library, /account and /admin; WRITES
 npm run verify:legal              # legal placeholders; read-only
 ```
 
@@ -81,8 +82,9 @@ npm run verify:legal              # legal placeholders; read-only
 `npx playwright install --with-deps chromium`, or set
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a binary the image already carries.
 
-`verify:entitlements` and `verify:exposure` both write to and delete from the
-database. Never point them at production.
+`verify:entitlements`, `verify:exposure`, and `verify:a11y --with-session` all
+write to and delete from the database. Never point them at production. The
+a11y script's default anonymous pass does not touch it.
 
 Environment precedence is `.env.local`, then `.env`, then anything already
 exported — exported wins, which is how CI injects secrets with no file on disk.
