@@ -314,6 +314,18 @@ differently. `prefers-reduced-motion` disables all of it.
   Next withholds the real error, and the digest is the handle that ties what the
   customer saw to the server log. Quoting eight characters beats "something went
   wrong".
+- **`global-error.tsx`** — the boundary `error.tsx` cannot be. `error.tsx` sits
+  *inside* the root layout, so it cannot catch an error the layout throws on
+  the way to rendering — and this layout calls `auth()`, which reads the
+  session from the database, on every request. A database refusing connections
+  therefore took out the page chrome and left Next's own unstyled fallback:
+  in production, the bare line "Application error: a server-side exception has
+  occurred". Everything in it is inline, because `globals.css` is imported by
+  the very file that failed. Verified by forcing a throw in the root layout,
+  building, and loading the result in a browser — 500 with the branded page and
+  a reference digest, no console errors. It renders after hydration (Next
+  requires a client component here), so a visitor with JS disabled still sees a
+  bare 500.
 - **`loading.tsx`** — a skeleton in the shape of the page. Every route renders
   per request, so a cold start would otherwise leave the previous page on screen.
 - **`SubmitButton`** — server-action forms give no feedback while posting, so a

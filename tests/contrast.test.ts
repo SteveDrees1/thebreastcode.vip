@@ -22,6 +22,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { palette } from "@/lib/brand";
 
 const css = readFileSync(
   fileURLToPath(new URL("../src/app/globals.css", import.meta.url)),
@@ -170,6 +171,44 @@ describe("the text hierarchy still reads as three steps", () => {
     const on = token["surface-2"];
     expect(contrast(token.muted, on) - contrast(token.faint, on)).toBeGreaterThan(1);
   });
+});
+
+describe("the next/og palette mirrors the CSS", () => {
+  /*
+   * `src/lib/brand.ts` duplicates the palette because `next/og` renders
+   * outside the CSS pipeline and cannot read custom properties. A duplicate
+   * with nothing checking it is a copy that drifts, and this one already had:
+   * `--color-faint` was raised from #6b7484 to #7f8898 to clear WCAG AA and
+   * the mirror kept the failing value. Nothing broke, only because no social
+   * card happens to use `faint` yet — the next one to reach for it would have
+   * inherited a 3.77:1 colour.
+   *
+   * The names do not match the tokens exactly, so the mapping is written out.
+   */
+  const MIRRORS: Array<[keyof typeof palette, string]> = [
+    ["ink", "void"],
+    ["surface", "surface"],
+    ["surface2", "surface-2"],
+    ["line", "line"],
+    ["text", "text"],
+    ["muted", "muted"],
+    ["faint", "faint"],
+    ["copper", "copper"],
+    ["copperBright", "copper-bright"],
+    ["cyan", "cyan"],
+  ];
+
+  it("covers every entry in the mirror", () => {
+    expect(MIRRORS.map(([key]) => key).sort()).toEqual(
+      Object.keys(palette).sort(),
+    );
+  });
+
+  for (const [key, cssToken] of MIRRORS) {
+    it(`palette.${key} equals --color-${cssToken}`, () => {
+      expect(palette[key]).toBe(token[cssToken]);
+    });
+  }
 });
 
 describe("the decorative hairlines are still decorative", () => {

@@ -51,8 +51,14 @@ export const brand = {
  * Palette, mirrored from globals.css.
  *
  * Duplicated here only because `next/og` renders outside the CSS pipeline and
- * cannot read custom properties. Any change must be made in both places, which
- * is why the list is short and the names match exactly.
+ * cannot read custom properties. Any change must be made in both places.
+ *
+ * "Must be made in both places" was not enough on its own: `faint` was raised
+ * to clear WCAG AA in globals.css and this copy kept the failing #6b7484, for
+ * weeks, invisibly — no card happens to use it. `tests/contrast.test.ts` now
+ * compares every entry against the token it mirrors, so the next drift is a
+ * failing test rather than a colour nobody looks at. The names are close to
+ * the token names but not identical; the mapping lives in that test.
  */
 export const palette = {
   ink: "#07080a",
@@ -61,7 +67,7 @@ export const palette = {
   line: "#1f242e",
   text: "#e9ecf1",
   muted: "#98a1b1",
-  faint: "#6b7484",
+  faint: "#7f8898",
   copper: "#e0913f",
   copperBright: "#f3ad63",
   cyan: "#4fd6c4",
