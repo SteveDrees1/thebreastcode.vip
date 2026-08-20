@@ -56,7 +56,34 @@ const VIEWPORTS = [
 
 let violations = 0;
 let runs = 0;
+/** `${path} [${viewport}]` for every page axe actually judged. */
+const audited = new Set<string>();
 const incompleteSeen = new Map<string, number>();
+
+/*
+ * Pages that must be audited for the run to mean anything.
+ *
+ * Without this the script's failure mode is silence: an empty route list, a
+ * server that redirects everything to a login, a discovery regex that stops
+ * matching — each of those prints "0 page audits, 0 rule violations" and exits
+ * 0. That is the same shape as a clean run, and it is exactly what
+ * verify-exposure.ts guards against with its control assertion.
+ *
+ * /referrals and /redeem are deliberately absent: they need a session, so a
+ * redirect is the correct outcome and demanding an audit would fail honestly
+ * configured runs. They stay in the visit list so that a regression making
+ * them publicly reachable shows up as an unexpected audit rather than nothing.
+ */
+const MUST_BE_AUDITED = [
+  "/",
+  "/catalog",
+  "/bundles",
+  "/pricing",
+  "/signin",
+  "/terms",
+  "/privacy",
+  "/this-route-does-not-exist",
+];
 
 /** Pull the first catalog and bundle links out of the rendered HTML. */
 async function discoverDetailRoutes(): Promise<string[]> {
@@ -105,6 +132,7 @@ async function audit(page: Page, path: string, viewport: (typeof VIEWPORTS)[numb
   }
 
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+  audited.add(`${path} [${viewport.name}]`);
 
   for (const rule of results.incomplete) {
     incompleteSeen.set(rule.id, (incompleteSeen.get(rule.id) ?? 0) + rule.nodes.length);
@@ -200,7 +228,18 @@ async function main() {
     }
   }
 
-  console.log(`\n${runs} page audits, ${violations} rule violation(s).`);
+  // Nothing above this line can distinguish "clean" from "never ran".
+  const missing = MUST_BE_AUDITED.flatMap((path) =>
+    VIEWPORTS.map((v) => `${path} [${v.name}]`).filter((key) => !audited.has(key)),
+  );
+  for (const key of missing) {
+    violations += 1;
+    console.error(`FAIL  ${key} was never audited; the run cannot be called clean`);
+  }
+
+  console.log(
+    `\n${runs} page visits, ${audited.size} audited, ${violations} rule violation(s).`,
+  );
   process.exit(violations > 0 ? 1 : 0);
 }
 

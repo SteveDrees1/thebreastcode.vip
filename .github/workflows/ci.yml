@@ -28,8 +28,14 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: tbc_ci
         ports: ["5432:5432"]
+        # -U postgres on the health check, because it runs as root inside the
+        # container and the bare form logs `FATAL: role "root" does not exist`
+        # every ten seconds for the length of the job. It still passed —
+        # pg_isready reports a reachable server either way — but a log full of
+        # FATAL is a log nobody reads. (A comment cannot live inside the folded
+        # block below: YAML would fold it into the value and hand it to docker.)
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
