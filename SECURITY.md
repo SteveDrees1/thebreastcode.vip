@@ -29,6 +29,7 @@ A short map, so a reviewer knows which file to read:
 | Webhook authenticity | Stripe signature verified against the raw body before any parsing |
 | Download authorisation | auth → rate limit → entitlement → short-lived presigned URL |
 | Emailed sign-in links | `src/lib/signin-throttle.ts`, called from the `signIn` callback in `auth.ts` — the one point both the form and `POST /api/auth/signin/nodemailer` pass through |
+| Every API route having *decided* about a limit | `tests/rate-limit.test.ts` reads `src/app/api/**/route.ts` and fails any route that neither calls `hit()` nor appears in a named exemption list |
 | JSON-LD injection | `safeJsonLd()` in `src/lib/seo.ts` |
 | Health detail disclosure | `/api/health` returns a bare verdict to anonymous callers; the per-area report needs a console session |
 
@@ -138,6 +139,7 @@ catches `AuthError` and redirects; everything else is rethrown, because
 | `OPTIONS` preflight | 204 with `Allow` only — the browser still blocks |
 | Cross-site form-encoded `POST` | 400: the route parses JSON, so the CSRF-able content types never reach it. `SameSite=Lax` would already withhold the cookie |
 | 34 downloads in a row | 27 allowed then 7 × 429 — exactly right, 3 of the 30 having been spent earlier |
+| 14 billing-portal requests in a row | 12 allowed then 2 × 429 with `retry-after: 60`. The limit is checked before the customer lookup, so it holds even for an account Stripe has never seen |
 
 A caution for whoever repeats this: the session cookie is scoped to the host in
 the magic link. Testing against `127.0.0.1` while the cookie was issued for
