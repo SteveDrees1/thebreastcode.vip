@@ -100,6 +100,9 @@ Observable in the code, not general advice:
   treat those as load-bearing and update them when the trade-off changes.
 - Known limitations are stated plainly in `README.md` rather than omitted.
 - Server actions authorise individually; never rely on a parent layout.
+  `tests/server-actions.test.ts` enforces it by reading the source — an action
+  added without its gate fails the suite by name. There is no way to assert
+  this from the types, and an ungated action looks exactly like a correct one.
 - Schema columns carry both a Drizzle `$defaultFn` and a SQL `DEFAULT`, so raw
   SQL inserts work as well as ORM inserts.
 - Legal facts live only in `src/lib/legal.ts`, as marked `TODO_LEGAL:`

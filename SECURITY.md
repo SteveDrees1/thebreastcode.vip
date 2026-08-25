@@ -23,7 +23,7 @@ A short map, so a reviewer knows which file to read:
 | May this user read this PDF? | `src/lib/entitlements.ts` — the only answer to that question |
 | Private columns never reaching a client | `src/lib/catalog.ts`, guarded at compile time by `satisfies` |
 | Console access (admin vs read-only auditor) | `src/lib/admin.ts` — three distinct gates |
-| Server-action authorisation | each action calls `getAdmin()` itself; layouts protect nothing |
+| Server-action authorisation | each action calls `getAdmin()` itself; layouts protect nothing. `tests/server-actions.test.ts` reads both action modules and fails any exported action that does not gate itself |
 | CSP nonce, and `/admin` 404 for anonymous callers | `src/middleware.ts` |
 | Transport and framing headers | `next.config.ts` |
 | Webhook authenticity | Stripe signature verified against the raw body before any parsing |
