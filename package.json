@@ -25,6 +25,7 @@
     "verify:a11y": "tsx scripts/verify-a11y.ts",
     "verify:legal": "tsx scripts/verify-legal.ts",
     "data:request": "tsx scripts/data-request.ts",
+    "prune:logs": "tsx scripts/prune-logs.ts",
     "make:cover": "tsx scripts/make-cover.mts"
   },
   "dependencies": {

@@ -105,6 +105,10 @@ Observable in the code, not general advice:
   this from the types, and an ungated action looks exactly like a correct one.
 - Schema columns carry both a Drizzle `$defaultFn` and a SQL `DEFAULT`, so raw
   SQL inserts work as well as ORM inserts.
+- `/privacy` renders the log-retention period from `src/lib/retention.ts`, the
+  same constant `scripts/prune-logs.ts` enforces, so the page cannot promise a
+  period nothing applies. Nothing schedules the script — that is a deployment
+  step, and `npm run verify:legal` lists it.
 - Legal facts live only in `src/lib/legal.ts`, as marked `TODO_LEGAL:`
   placeholders rather than invented company details. `/terms` and `/privacy`
   render them through `legalValue()`. The privacy policy makes specific claims

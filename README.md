@@ -102,6 +102,22 @@ npm run verify:a11y -- --with-session   # …and the pages behind a login; write
 npm run verify:legal          # unfilled legal placeholders; --strict before launch
 ```
 
+One maintenance job has to be scheduled, and nothing in this repository
+schedules it:
+
+```bash
+npm run prune:logs              # deletes download logs past their retention
+npm run prune:logs -- --dry-run # counts them without deleting
+```
+
+`/privacy` tells the reader those logs are deleted after
+`DOWNLOAD_LOG_RETENTION_DAYS` (`src/lib/retention.ts`, currently 90). The page
+renders that constant and the script enforces it, so the two cannot drift —
+but until the script runs on a schedule, the policy describes behaviour the
+deployment does not have. Daily is plenty; a Vercel Cron entry or any
+scheduler will do. `npm run verify:legal` lists it alongside the other
+pre-launch steps.
+
 `verify:a11y` drives a real browser. Install it once with `npx playwright
 install --with-deps chromium`, or point `PLAYWRIGHT_CHROMIUM_EXECUTABLE` at a
 binary an image already has.

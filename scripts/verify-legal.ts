@@ -23,6 +23,10 @@ const strict = process.argv.includes("--strict");
  * are settings and reviews, not values in a file.
  */
 const MANUAL_CHECKS = [
+  "Schedule `npm run prune:logs` — daily is plenty. /privacy tells the reader " +
+    "download logs are deleted after their retention period, and nothing in this " +
+    "repository runs that for you. Until it is scheduled, the policy describes " +
+    "behaviour the deployment does not have.",
   "Stripe Dashboard → Settings → Business → Public details: set a Terms of service URL. " +
     "Checkout's consent_collection requires it; without it every checkout fails.",
   "Complete one test-mode purchase and confirm the consent tickbox appears and is recorded on the session.",

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { brand } from "@/lib/brand";
 import { legal, legalValue } from "@/lib/legal";
+import { DOWNLOAD_LOG_RETENTION_DAYS } from "@/lib/retention";
 import { LegalDocument, type LegalSection } from "@/components/legal-document";
 
 export const metadata: Metadata = {
@@ -85,7 +86,7 @@ export default function PrivacyPage() {
       title: "How long we keep it",
       paragraphs: [
         "Account and purchase records are kept for as long as you have an account, and afterwards for as long as tax and accounting law requires us to keep records of a sale — commonly six years, depending on where we are established.",
-        "Download logs are operational security data and are kept for a rolling period rather than indefinitely.",
+        `Download logs are operational security data. They are kept for ${DOWNLOAD_LOG_RETENTION_DAYS} days and then deleted, not kept indefinitely.`,
         "Administrator audit records are kept for as long as the account they concern, because their point is being able to reconstruct who changed what.",
         "When a retention period ends, records are deleted or irreversibly anonymised.",
       ],
