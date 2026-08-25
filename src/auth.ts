@@ -8,6 +8,8 @@
  */
 import NextAuth, { type DefaultSession } from "next-auth";
 import Nodemailer from "next-auth/providers/nodemailer";
+import { headers } from "next/headers";
+import { checkSignInThrottle } from "@/lib/signin-throttle";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/db";
 import { accounts, sessions, users, verificationTokens } from "@/db/schema";
@@ -34,6 +36,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/signin",
     verifyRequest: "/signin/check-email",
+    /*
+     * Send failures back to our own page rather than Auth.js's default error
+     * screen, which is unbranded and says "AccessDenied" to someone who has
+     * simply asked for too many links. `/signin` reads `?error=` and explains
+     * it in the site's own words.
+     */
+    error: "/signin",
   },
   providers: [
     Nodemailer({
@@ -49,6 +58,46 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    /**
+     * The single choke point for emailed sign-in links.
+     *
+     * This runs before `sendVerificationRequest`, on every path — the sign-in
+     * form's server action *and* a direct `POST /api/auth/signin/nodemailer`,
+     * which Auth.js mounts for every provider and advertises from
+     * `GET /api/auth/providers`. The throttle used to live in the form's
+     * action, which meant it only ever inspected requests from people who were
+     * not trying to get around it: ten direct POSTs sent ten emails to one
+     * address against a stated limit of five per fifteen minutes. Reproduced
+     * against a local SMTP sink, not inferred.
+     *
+     * Returning false makes Auth.js redirect to `pages.error` above.
+     */
+    async signIn({ email, user }) {
+      // Only the verification-request step sends mail. Following a link back
+      // is the same callback with `email` absent, and must not be throttled —
+      // that would lock out the person who just asked for the link.
+      if (!email?.verificationRequest) return true;
+
+      const address = user?.email;
+      // No address means nothing to key on and nothing to send to. Auth.js
+      // would reject it anyway; refusing here keeps an unkeyed request from
+      // reaching the transport at all.
+      if (!address) return false;
+
+      const requestHeaders = await headers();
+      const ip =
+        requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+
+      const verdict = checkSignInThrottle({ email: address, ip });
+      if (!verdict.ok) {
+        // The address is not logged: this is the one place that knows someone
+        // typed it, and it may not be theirs.
+        console.warn(`[signin] throttled by ${verdict.reason} limit`);
+        return false;
+      }
+      return true;
+    },
+
     /**
      * Build the session object from scratch rather than mutating the one the
      * adapter hands over.

@@ -28,6 +28,7 @@ A short map, so a reviewer knows which file to read:
 | Transport and framing headers | `next.config.ts` |
 | Webhook authenticity | Stripe signature verified against the raw body before any parsing |
 | Download authorisation | auth → rate limit → entitlement → short-lived presigned URL |
+| Emailed sign-in links | `src/lib/signin-throttle.ts`, called from the `signIn` callback in `auth.ts` — the one point both the form and `POST /api/auth/signin/nodemailer` pass through |
 | JSON-LD injection | `safeJsonLd()` in `src/lib/seo.ts` |
 | Health detail disclosure | `/api/health` returns a bare verdict to anonymous callers; the per-area report needs a console session |
 
@@ -83,6 +84,45 @@ sink so the magic-link email is actually delivered and the link followed.
 | Sign-out | deletes only that session row; the other device stays signed in |
 | Replaying a signed-out cookie | treated as anonymous, and `/account` returns no email |
 | Session cookie | `HttpOnly`, `SameSite=Lax`, `Path=/`. No `Secure` over plain HTTP; Auth.js adds it and the `__Secure-` prefix on HTTPS, which is what `middleware.ts` looks for |
+| Sixth link request for one address | refused; the form lands on `/signin?error=throttled`, a direct POST on `/signin?error=AccessDenied`, and both render the same sentence |
+| Following a link after being throttled | still works — the throttle applies to sending, not to verifying |
+
+### The sign-in throttle was bypassable, and this is how it was found
+
+Worth recording in full, because the shape recurs: a control placed on the path
+an honest user takes, guarding a route that is also reachable directly.
+
+The limit on emailed sign-in links lived in the sign-in form's server action.
+Auth.js, though, mounts `POST /api/auth/signin/<provider>` for every configured
+provider and *advertises the URL* from `GET /api/auth/providers`. Against a
+local SMTP sink, ten direct POSTs carrying a valid CSRF token returned ten
+302s and delivered **ten** magic-link emails to one address, against a stated
+limit of five per fifteen minutes. The per-IP limit went with it.
+
+Three consequences, none of which need an account:
+
+- any inbox can be flooded, using the shop's own name;
+- the transactional email budget is spendable by a stranger;
+- a list of addresses can be walked, each receiving a genuine "sign in to Datum
+  Press" message — which burns the sending domain's reputation.
+
+The fix is `src/lib/signin-throttle.ts`, called from the `signIn` callback in
+`auth.ts`. That callback runs before `sendVerificationRequest` on every path,
+so there is no longer a way in that skips it. The form's own copy of the check
+was removed rather than kept — two checks would consume two slots per
+submission and quietly halve the limit for honest visitors.
+
+Re-running the identical attack after the fix: five emails, then five
+redirects to `/signin?error=AccessDenied`. Through the form: five, then the
+throttled message.
+
+One thing the fix broke and had to be fixed again: a refused sign-in reaches a
+*server action* as a thrown `AuthError`, not as a redirect — only the HTTP
+endpoint gets sent to `pages.error`. The first version therefore showed the
+customer "Something broke" from the error boundary. Caught by clicking the
+button six times in a browser rather than by reading the code. The action now
+catches `AuthError` and redirects; everything else is rethrown, because
+`signIn` signals *success* by throwing too.
 
 **API surface**
 
