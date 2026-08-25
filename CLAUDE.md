@@ -113,6 +113,10 @@ Observable in the code, not general advice:
 - Brand strings live only in `src/lib/brand.ts`. Do not hardcode the name,
   tagline or palette anywhere else; `next/og` images duplicate the palette there
   because they cannot read CSS variables.
+  `tests/brand-single-source.test.ts` enforces the strings (comments excluded,
+  since prose that names the shop is not a hardcoded brand string), and
+  `tests/contrast.test.ts` enforces that the `next/og` palette still matches
+  the CSS it mirrors.
 - Colour tokens live in the `@theme` block of `src/app/globals.css` and are
   read back by `tests/contrast.test.ts`, which computes WCAG ratios from them.
   Adding a text colour, or a border that identifies a control, means adding the
